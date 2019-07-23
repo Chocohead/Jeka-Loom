@@ -11,14 +11,15 @@ class Build extends JkCommands {
 
 	public static void main(String[] args) throws Exception {
 		JkInit.instanceOf(Build.class, args).javaPlugin.clean().pack();
-    }
+	}
 
 	@Override
-    protected void setup() {
-        JkJavaProject project = javaPlugin.getProject();
-        project.addDependencies(JkDependencySet.of()
-                .andFile(JkLocator.getJekaJarPath(), JkJavaDepScopes.PROVIDED)
-                .and("com.google.guava:guava:28.0-jre")
-                .and("org.junit.jupiter:junit-jupiter:5.5.1", JkJavaDepScopes.TEST));
-    }
+	protected void setup() {
+		JkJavaProject project = javaPlugin.getProject();
+		project.addDependencies(JkDependencySet.of()
+				.andFile(JkLocator.getJekaJarPath(), JkJavaDepScopes.PROVIDED)
+				.and("com.google.guava:guava:28.0-jre")
+				.and("com.google.code.gson:gson:2.8.5")
+				.and("org.junit.jupiter:junit-jupiter:5.5.1", JkJavaDepScopes.TEST));
+	}
 }
