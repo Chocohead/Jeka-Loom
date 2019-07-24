@@ -1,7 +1,5 @@
 package com.chocohead.loom;
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.nio.file.Path;
 import java.util.Collections;
 
@@ -12,7 +10,6 @@ import dev.jeka.core.api.depmanagement.JkResolveResult;
 import dev.jeka.core.api.depmanagement.JkScopedDependency;
 import dev.jeka.core.api.system.JkLocator;
 import dev.jeka.core.api.system.JkLog;
-import dev.jeka.core.api.utils.JkUtilsIO;
 import dev.jeka.core.api.utils.JkUtilsPath;
 import dev.jeka.core.tool.JkCommands;
 import dev.jeka.core.tool.JkConstants;
@@ -28,8 +25,8 @@ public class JkPluginLoom extends JkPlugin {
 
 	protected final JkDependencyResolver depResolver = getCommands().getRunDependencyResolver();
 
-	@JkDoc("The url to display content.")
-	public String url = "https://www.google.com/";
+	@JkDoc("Whether to avoid accessing remote resources in favour of local caches.")
+	public boolean runOffline = false;
 
 	protected JkPluginLoom(JkCommands commands) {
 		super(commands);
@@ -54,11 +51,4 @@ public class JkPluginLoom extends JkPlugin {
 	public JkResolveResult resolveDependency(JkDependency dependency) {
 		return depResolver.resolve(JkDependencySet.of(Collections.singletonList(JkScopedDependency.of(dependency)))).assertNoError();
 	}
-
-	@JkDoc("Display source cotent of the url option on the console.")
-	public void displayContent() throws MalformedURLException {
-		String content = JkUtilsIO.read(new URL(url));
-		System.out.println(content);
-	}
-
 }
