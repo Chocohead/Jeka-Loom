@@ -1,5 +1,8 @@
 package com.chocohead.loom.minecraft;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+
 import com.google.gson.Gson;
 
 import dev.jeka.core.api.depmanagement.JkDependency;
@@ -12,10 +15,14 @@ import dev.jeka.core.tool.JkDocPluginDeps;
 import dev.jeka.core.tool.JkPlugin;
 
 import com.chocohead.loom.JkPluginLoom;
+import com.chocohead.loom.minecraft.MinecraftVersions.Version;
 
 @JkDoc("Adds Minecraft support to Loom")
 @JkDocPluginDeps(JkPluginLoom.class)
 public class JkPluginMinecraft extends JkPlugin {
+	public static final String FULL_MANIFEST = "version_manifest.json";
+	public static final String VERSION_MANIFEST = "minecraft-%s-info.json";
+
 	public static final Gson GSON = new Gson();
 	protected final JkPluginLoom loom = getCommands().getPlugin(JkPluginLoom.class);
 
@@ -54,6 +61,21 @@ public class JkPluginMinecraft extends JkPlugin {
 			JkLog.trace("Using supplied Yarn dependency: " + yarn);
 		}
 
+		MinecraftVersion minecraft = resolveMinecraftVersion();
+	}
 
+	private MinecraftVersion resolveMinecraftVersion() {
+		try {
+			MinecraftVersions versions = MinecraftVersions.get(loom.globalCache.resolve(FULL_MANIFEST), loom.runOffline);
+
+			Version version = versions.getVersion(this.version);
+			if (version == null) {
+				throw new JkException("Failed to find minecraft version: " + this.version);
+			}
+
+			return version.get(loom.globalCache.resolve(String.format(VERSION_MANIFEST, this.version)), loom.runOffline);
+		} catch (IOException e) {
+			throw new UncheckedIOException("Error resolving minecraft version: " + version, e);
+		}
 	}
 }
