@@ -30,7 +30,7 @@ public class JkPluginMinecraft extends JkPlugin {
 	public String version;
 	@JkDoc("The mappings to use")
 	public String yarnModule;
-
+	/** The actual Yarn mappings to be used, will create a {@link JkModuleDependency} of {@link #yarnModule} if <code>null</code> */
 	public JkDependency yarn;
 	@JkDoc("Whether to remap the jars then merge (true) or merge the jars then remap (false)")
 	public boolean splitMerge = false;
@@ -63,9 +63,13 @@ public class JkPluginMinecraft extends JkPlugin {
 			JkLog.trace("Using supplied Yarn dependency: " + yarn);
 		}
 
+		JkLog.startTask("Fetching Minecraft manifests");
 		MinecraftVersion minecraft = resolveMinecraftVersion();
+		JkLog.endTask();
 
+		JkLog.startTask("Fetching and merging Minecraft jars");
 		MinecraftResolver resolver = new MinecraftResolver(loom.globalCache.resolve(version), minecraft, splitMerge, loom.runOffline);
+		JkLog.endTask();
 	}
 
 	private MinecraftVersion resolveMinecraftVersion() {
@@ -74,12 +78,12 @@ public class JkPluginMinecraft extends JkPlugin {
 
 			Version version = versions.getVersion(this.version);
 			if (version == null) {
-				throw new JkException("Failed to find minecraft version: " + this.version);
+				throw new JkException("Failed to find Minecraft version: " + this.version);
 			}
 
 			return version.get(loom.globalCache.resolve(String.format(VERSION_MANIFEST, this.version)), loom.runOffline);
 		} catch (IOException e) {
-			throw new UncheckedIOException("Error resolving minecraft version: " + version, e);
+			throw new UncheckedIOException("Error resolving Minecraft version: " + version, e);
 		}
 	}
 }
