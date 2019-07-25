@@ -32,6 +32,8 @@ public class JkPluginMinecraft extends JkPlugin {
 	public String yarnModule;
 
 	public JkDependency yarn;
+	@JkDoc("Whether to remap the jars then merge (true) or merge the jars then remap (false)")
+	public boolean splitMerge = false;
 
 	protected JkPluginMinecraft(JkCommands commands) {
 		super(commands);
@@ -62,6 +64,8 @@ public class JkPluginMinecraft extends JkPlugin {
 		}
 
 		MinecraftVersion minecraft = resolveMinecraftVersion();
+
+		MinecraftResolver resolver = new MinecraftResolver(loom.globalCache.resolve(version), minecraft, splitMerge, loom.runOffline);
 	}
 
 	private MinecraftVersion resolveMinecraftVersion() {
