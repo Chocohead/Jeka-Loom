@@ -1,6 +1,8 @@
 import dev.jeka.core.api.depmanagement.JkDependencySet;
 import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
+import dev.jeka.core.api.depmanagement.JkRepoSet;
 import dev.jeka.core.api.java.project.JkJavaProject;
+import dev.jeka.core.api.java.project.JkJavaProjectMaker;
 import dev.jeka.core.api.system.JkLocator;
 import dev.jeka.core.tool.JkCommands;
 import dev.jeka.core.tool.JkInit;
@@ -20,6 +22,14 @@ class Build extends JkCommands {
 				.andFile(JkLocator.getJekaJarPath(), JkJavaDepScopes.PROVIDED)
 				.and("com.google.guava:guava:28.0-jre")
 				.and("com.google.code.gson:gson:2.8.5")
+				.and("com.github.Chocohead:Stitch:529051f")
+				.and("com.github.Chocohead:tiny-remapper:ddc99f7")
 				.and("org.junit.jupiter:junit-jupiter:5.5.1", JkJavaDepScopes.TEST));
+	}
+
+	@Override
+	protected void setupAfterPluginActivations() {
+		JkJavaProjectMaker project = javaPlugin.getProject().getMaker();
+		project.setDependencyResolver(project.getDependencyResolver().andRepos(JkRepoSet.of("https://maven.fabricmc.net", "https://jitpack.io/")));
 	}
 }
