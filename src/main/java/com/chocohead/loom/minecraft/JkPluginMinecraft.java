@@ -5,8 +5,9 @@ import java.io.UncheckedIOException;
 
 import com.google.gson.Gson;
 
-import dev.jeka.core.api.depmanagement.JkDependency;
+import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
 import dev.jeka.core.api.depmanagement.JkModuleDependency;
+import dev.jeka.core.api.depmanagement.JkRepo;
 import dev.jeka.core.api.system.JkException;
 import dev.jeka.core.api.system.JkLog;
 import dev.jeka.core.tool.JkCommands;
@@ -14,6 +15,7 @@ import dev.jeka.core.tool.JkDoc;
 import dev.jeka.core.tool.JkDocPluginDeps;
 import dev.jeka.core.tool.JkPlugin;
 
+import com.chocohead.loom.FullDependency;
 import com.chocohead.loom.JkPluginLoom;
 import com.chocohead.loom.minecraft.MinecraftVersions.Version;
 
@@ -31,7 +33,7 @@ public class JkPluginMinecraft extends JkPlugin {
 	@JkDoc("The mappings to use")
 	public String yarnModule;
 	/** The actual Yarn mappings to be used, will create a {@link JkModuleDependency} of {@link #yarnModule} if <code>null</code> */
-	public JkDependency yarn;
+	public FullDependency yarn;
 	@JkDoc("Whether to remap the jars then merge (true) or merge the jars then remap (false)")
 	public boolean splitMerge = false;
 
@@ -57,7 +59,7 @@ public class JkPluginMinecraft extends JkPlugin {
 				throw new JkException("Yarn version is not set for " + version);
 			} else {
 				JkLog.trace("Implying Yarn dependency from provided module: " + yarnModule);
-				yarn = JkModuleDependency.of(yarnModule);
+				yarn = FullDependency.of(JkModuleDependency.of(yarnModule), JkRepo.of("https://maven.fabricmc.net"), JkJavaDepScopes.COMPILE_AND_RUNTIME);
 			}
 		} else {
 			JkLog.trace("Using supplied Yarn dependency: " + yarn);

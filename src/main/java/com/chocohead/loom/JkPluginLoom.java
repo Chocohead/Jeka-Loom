@@ -1,13 +1,7 @@
 package com.chocohead.loom;
 
 import java.nio.file.Path;
-import java.util.Collections;
 
-import dev.jeka.core.api.depmanagement.JkDependency;
-import dev.jeka.core.api.depmanagement.JkDependencyResolver;
-import dev.jeka.core.api.depmanagement.JkDependencySet;
-import dev.jeka.core.api.depmanagement.JkResolveResult;
-import dev.jeka.core.api.depmanagement.JkScopedDependency;
 import dev.jeka.core.api.system.JkLocator;
 import dev.jeka.core.api.system.JkLog;
 import dev.jeka.core.api.utils.JkUtilsPath;
@@ -22,8 +16,6 @@ import dev.jeka.core.tool.builtins.java.JkPluginJava;
 public class JkPluginLoom extends JkPlugin {
 	/** Cache for persistently storing anything related to the project */
 	public final Path globalCache, projectCache;
-
-	protected final JkDependencyResolver depResolver = getCommands().getRunDependencyResolver();
 
 	@JkDoc("Whether to avoid accessing remote resources in favour of local caches.")
 	public boolean runOffline = false;
@@ -46,9 +38,5 @@ public class JkPluginLoom extends JkPlugin {
 	@Override
 	protected void activate() {
 		JkLog.info("Loom activate");
-	}
-
-	public JkResolveResult resolveDependency(JkDependency dependency) {
-		return depResolver.resolve(JkDependencySet.of(Collections.singletonList(JkScopedDependency.of(dependency)))).assertNoError();
 	}
 }
