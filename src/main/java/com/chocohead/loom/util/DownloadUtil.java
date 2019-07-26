@@ -75,12 +75,7 @@ public class DownloadUtil {
 		try (OutputStream out = Files.newOutputStream(to, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW)) {//Try download to the output
 			JkUtilsIO.copy(connection.getInputStream(), out);
 		} catch (IOException e) {
-			try {
-				Files.deleteIfExists(to); //Probably isn't good if it fails to copy/save
-			} catch (IOException eAgain) {
-				e.addSuppressed(eAgain);
-			}
-
+			deleteAfterCrash(to, e);
 			throw e;
 		}
 
@@ -174,5 +169,19 @@ public class DownloadUtil {
 	public static void delete(Path file) throws IOException {
 		Files.deleteIfExists(file);
 		Files.deleteIfExists(getETagFile(file));
+	}
+
+	/**
+	 * Ensures the given {@link Path} is deleted after the given exception is thrown using {@link Files#deleteIfExists(Path)}
+	 *
+	 * @param file The path that should be deleted, if it exists
+	 * @param t The original exception thrown from a previous operation
+	 */
+	public static void deleteAfterCrash(Path file, Throwable t) {
+		try {
+			Files.deleteIfExists(file);
+		} catch (IOException e) {
+			t.addSuppressed(e);
+		}
 	}
 }

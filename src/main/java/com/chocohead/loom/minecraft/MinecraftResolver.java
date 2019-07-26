@@ -67,6 +67,7 @@ public class MinecraftResolver {
 				JkLog.trace("Downloading Minecraft " + version.id + ' ' + jarName + " jar");
 				DownloadUtil.downloadIfChanged(version.downloads.get(jarName).url, jar);
 			} catch (IOException e) {
+				//Shouldn't need to delete the jar here, DownloadUtil will do it if it reached that stage
 				throw new RuntimeException("Unexpected error downloading " + jarName + " jar", e);
 			}
 		}
@@ -97,12 +98,7 @@ public class MinecraftResolver {
 					jarMerger.enableSyntheticParamsOffset();
 					jarMerger.merge();
 				} catch (IOException e) {
-					try {
-						Files.delete(mergedJar);
-					} catch (IOException eAgain) {
-						e.addSuppressed(eAgain);
-					}
-
+					DownloadUtil.deleteAfterCrash(mergedJar, e);
 					throw new RuntimeException("Error merging client and server jars", e);
 				}
 			}
@@ -112,12 +108,7 @@ public class MinecraftResolver {
 					jarMerger.enableSyntheticParamsOffset();
 					jarMerger.merge();
 				} catch (IOException e) {
-					try {
-						Files.delete(mergedJar);
-					} catch (IOException eAgain) {
-						e.addSuppressed(eAgain);
-					}
-
+					DownloadUtil.deleteAfterCrash(mergedJar, e);
 					throw new RuntimeException("Error merging client and server jars", e);
 				}
 			}
@@ -127,7 +118,7 @@ public class MinecraftResolver {
 	}
 
 	private void remapIfMissing(Path jar, Path output, MappingFactory mappings, String from, String to) {
-		if (Files.exists(output)) return; //Nothing to do
+		if (Files.exists(output)) return; //Nothing to do (probably)
 
 		try {
 			TinyRemapper remapper = TinyRemapper.newRemapper()
@@ -146,6 +137,7 @@ public class MinecraftResolver {
 
 			remapper.finish();
 		} catch (IOException e) {
+			DownloadUtil.deleteAfterCrash(output, e);
 			throw new RuntimeException("Failed to remap jar", e);
 		}
 	}
