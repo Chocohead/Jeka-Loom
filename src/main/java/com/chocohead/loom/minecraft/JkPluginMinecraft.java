@@ -20,8 +20,8 @@ import com.chocohead.loom.minecraft.MinecraftVersions.Version;
 @JkDoc("Adds Minecraft support to Loom")
 @JkDocPluginDeps(JkPluginLoom.class)
 public class JkPluginMinecraft extends JkPlugin {
-	public static final String FULL_MANIFEST = "version_manifest.json";
-	public static final String VERSION_MANIFEST = "minecraft-%s-info.json";
+	private static final String FULL_MANIFEST = "version_manifest.json";
+	private static final String VERSION_MANIFEST = "minecraft-%s-info.json";
 
 	public static final Gson GSON = new Gson();
 	protected final JkPluginLoom loom = getCommands().getPlugin(JkPluginLoom.class);
@@ -63,12 +63,28 @@ public class JkPluginMinecraft extends JkPlugin {
 			JkLog.trace("Using supplied Yarn dependency: " + yarn);
 		}
 
+		JkLog.startTask("Preparing Minecraft dependencies");
 		JkLog.startTask("Fetching Minecraft manifests");
 		MinecraftVersion minecraft = resolveMinecraftVersion();
 		JkLog.endTask();
 
-		JkLog.startTask("Fetching and merging Minecraft jars");
+		JkLog.startTask("Fetching Minecraft jars");
 		MinecraftResolver resolver = new MinecraftResolver(loom.globalCache.resolve(version), minecraft, splitMerge, loom.runOffline);
+		JkLog.endTask();
+
+		JkLog.startTask("Resolving mappings");
+		MappingResolver mappings = new MappingResolver(resolver.cache, yarn, loom.runOffline);
+		JkLog.endTask();
+
+		JkLog.startTask("Merging Minecraft jars");
+		resolver.makeIntermediary(mappings.getIntermediaries());
+		JkLog.endTask();
+
+		mappings.postMerge(resolver.getMerged());
+
+		JkLog.startTask("Remapping Minecraft jar");
+		resolver.makeMapped(mappings.getNamed());
+		JkLog.endTask();
 		JkLog.endTask();
 	}
 
