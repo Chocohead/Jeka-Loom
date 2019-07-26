@@ -3,13 +3,21 @@ package com.chocohead.loom.minecraft;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import dev.jeka.core.api.depmanagement.JkDependencySet;
+import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
+import dev.jeka.core.api.depmanagement.JkModuleDependency;
+import dev.jeka.core.api.depmanagement.JkRepoSet;
+import dev.jeka.core.api.depmanagement.JkScopedDependency;
 import dev.jeka.core.api.system.JkException;
 import dev.jeka.core.api.system.JkLog;
 import dev.jeka.core.api.utils.JkUtilsPath;
 
+import com.chocohead.loom.FullDependency;
 import com.chocohead.loom.minecraft.MappingResolver.MappingFactory;
+import com.chocohead.loom.minecraft.MinecraftVersion.Library;
 import com.chocohead.loom.util.Checksum;
 import com.chocohead.loom.util.DownloadUtil;
 
@@ -27,7 +35,7 @@ public class MinecraftResolver {
 	private static final String MAPPED_JAR = "merged-%s.jar";
 
 	protected final MinecraftVersion version;
-	protected final JkDependencySet libraries;
+	protected final FullDependency libraries;
 	protected final boolean split;
 
 	protected final Path cache;
@@ -58,7 +66,7 @@ public class MinecraftResolver {
 			downloadIfNeeded("server", serverJar);
 		}
 
-		libraries = LibraryResolver.go(version.libraries);
+		libraries = resolveLibraries();
 	}
 
 	private void downloadIfNeeded(String jarName, Path jar) {
@@ -71,6 +79,19 @@ public class MinecraftResolver {
 				throw new RuntimeException("Unexpected error downloading " + jarName + " jar", e);
 			}
 		}
+	}
+
+	protected FullDependency resolveLibraries() {
+		List<JkScopedDependency> dependencies = new ArrayList<>();
+
+		for (Library library : version.libraries) {
+			if (!library.shouldUse()) continue;
+
+			dependencies.add(JkScopedDependency.of(JkModuleDependency.of(library.name), JkJavaDepScopes.PROVIDED));
+		}
+
+		//Could check all the libraries start with the same repo URL?
+		return FullDependency.of(JkDependencySet.of(dependencies), JkRepoSet.of("https://libraries.minecraft.net"), JkJavaDepScopes.SCOPES_FOR_COMPILATION);
 	}
 
 	public Path getClient() {
@@ -129,7 +150,7 @@ public class MinecraftResolver {
 
 			try (OutputConsumerPath outputConsumer = new OutputConsumerPath(jar)) {
 				outputConsumer.addNonClassFiles(jar);
-				remapper.readClassPath(LibraryResolver.resolve(libraries).getEntries().toArray(new Path[0]));
+				remapper.readClassPath(libraries.resolveToPaths().toArray(new Path[0]));
 				remapper.readInputs(jar);
 
 				remapper.apply(outputConsumer);
