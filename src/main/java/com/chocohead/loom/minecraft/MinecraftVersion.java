@@ -83,15 +83,14 @@ public class MinecraftVersion {
 
 		public boolean shouldUse() {
 			if (rules == null || rules.length == 0) return true;
-			boolean out = false;
 
-			for (Rule rule : rules) {
-				if (rule.doesRuleApply()) {
-					out = rule.action == Action.ALLOW;
+			for (int i = rules.length - 1; i >= 0; i--) {
+				if (rules[i].doesRuleApply()) {
+					return rules[i].action == Action.ALLOW;
 				}
 			}
 
-			return out;
+			return false;
 		}
 	}
 
