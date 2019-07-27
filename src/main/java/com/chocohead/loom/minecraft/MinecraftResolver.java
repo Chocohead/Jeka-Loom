@@ -18,7 +18,7 @@ import dev.jeka.core.api.utils.JkUtilsPath;
 import com.chocohead.loom.FullDependency;
 import com.chocohead.loom.minecraft.MappingResolver.MappingFactory;
 import com.chocohead.loom.minecraft.MinecraftVersion.Library;
-import com.chocohead.loom.util.Checksum;
+import com.chocohead.loom.util.FileUtils;
 import com.chocohead.loom.util.DownloadUtil;
 
 import net.fabricmc.stitch.merge.JarMerger;
@@ -70,7 +70,7 @@ public class MinecraftResolver {
 	}
 
 	private void downloadIfNeeded(String jarName, Path jar) {
-		if (Files.notExists(jar) || !Checksum.equals(jar, version.downloads.get(jarName).hash)) {
+		if (Files.notExists(jar) || !FileUtils.matchesSHA1(jar, version.downloads.get(jarName).hash)) {
 			try {
 				JkLog.trace("Downloading Minecraft " + version.id + ' ' + jarName + " jar");
 				DownloadUtil.downloadIfChanged(version.downloads.get(jarName).url, jar);
@@ -119,7 +119,7 @@ public class MinecraftResolver {
 					jarMerger.enableSyntheticParamsOffset();
 					jarMerger.merge();
 				} catch (IOException e) {
-					DownloadUtil.deleteAfterCrash(mergedJar, e);
+					FileUtils.deleteAfterCrash(mergedJar, e);
 					throw new RuntimeException("Error merging client and server jars", e);
 				}
 			}
@@ -129,7 +129,7 @@ public class MinecraftResolver {
 					jarMerger.enableSyntheticParamsOffset();
 					jarMerger.merge();
 				} catch (IOException e) {
-					DownloadUtil.deleteAfterCrash(mergedJar, e);
+					FileUtils.deleteAfterCrash(mergedJar, e);
 					throw new RuntimeException("Error merging client and server jars", e);
 				}
 			}
@@ -158,7 +158,7 @@ public class MinecraftResolver {
 
 			remapper.finish();
 		} catch (IOException e) {
-			DownloadUtil.deleteAfterCrash(output, e);
+			FileUtils.deleteAfterCrash(output, e);
 			throw new RuntimeException("Failed to remap jar", e);
 		}
 	}
