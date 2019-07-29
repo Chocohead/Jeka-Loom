@@ -1,94 +1,88 @@
 package com.chocohead.loom;
 
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
+
+import com.google.common.collect.Iterables;
 
 import dev.jeka.core.api.depmanagement.JkDependency;
-import dev.jeka.core.api.depmanagement.JkDependencyResolver;
 import dev.jeka.core.api.depmanagement.JkDependencySet;
+import dev.jeka.core.api.depmanagement.JkModuleDependency;
+import dev.jeka.core.api.depmanagement.JkModuleId;
 import dev.jeka.core.api.depmanagement.JkRepo;
 import dev.jeka.core.api.depmanagement.JkRepoSet;
-import dev.jeka.core.api.depmanagement.JkResolveResult;
 import dev.jeka.core.api.depmanagement.JkScope;
 import dev.jeka.core.api.depmanagement.JkScopedDependency;
-import dev.jeka.core.api.file.JkPathSequence;
-import dev.jeka.core.api.utils.JkUtilsAssert;
+import dev.jeka.core.api.depmanagement.JkVersion;
 
-public final class FullDependency {
-	private final JkDependencySet dependencies;
-	private final JkRepoSet repos;
-	private final JkScope[] scopes;
-	private JkDependencyResolver resolver;
+public final class FullDependency extends FullDependencies {
+	private final JkScopedDependency dependency;
 
-	private FullDependency(JkDependencySet dependencies, JkRepoSet repos, JkScope[] scopes) {
-		this.dependencies = dependencies;
-		this.repos = repos;
-		this.scopes = scopes;
+	FullDependency(JkDependencySet dependency, JkRepoSet repos, JkScope[] scopes) {
+		super(dependency, repos, scopes);
+
+		this.dependency = Iterables.getOnlyElement(dependency);
 	}
 
-	public static FullDependency of(JkDependencySet dependencies, JkRepoSet repos, JkScope... scopes) {
-		JkUtilsAssert.notNull(scopes, "FullDependency can't be created with null scope, use an empty array instead");
-		return new FullDependency(dependencies, repos, scopes);
+	private FullDependency(JkScopedDependency dependency, JkRepoSet repos, JkScope[] scopes) {
+		super(JkDependencySet.of(Collections.singletonList(dependency)), repos, scopes);
+
+		this.dependency = dependency;
+	}
+
+	public static FullDependency of(JkScopedDependency dependency, JkRepoSet repos, JkScope... scopes) {
+		return new FullDependency(dependency, repos, scopes);
+	}
+
+	public static FullDependency of(JkDependency dependency, JkRepoSet repo, JkScope... scopes) {
+		return of(JkScopedDependency.of(dependency), repo, scopes);
 	}
 
 	public static FullDependency of(JkDependency dependency, JkRepo repo, JkScope... scopes) {
-		return of(JkDependencySet.of(Collections.singletonList(JkScopedDependency.of(dependency))), repo.toSet(), scopes);
+		return of(dependency, repo.toSet(), scopes);
 	}
 
-	public FullDependency withDependencies(JkDependencySet dependencies) {
-		return of(dependencies, repos, scopes);
-	}
-
-	public FullDependency andDependencies(JkDependencySet dependencies) {
-		return withDependencies(this.dependencies.and(dependencies));
-	}
-
+	@Override
 	public FullDependency withRepos(JkRepoSet repos) {
-		return of(dependencies, repos, scopes);
+		return of(dependency, repos, scopes);
 	}
 
+	@Override
 	public FullDependency andRepos(JkRepoSet repos) {
 		return withRepos(this.repos.and(repos));
 	}
 
+	@Override
 	public FullDependency withScopes(JkScope... scopes) {
-		return of(dependencies, repos, scopes);
+		return of(dependency, repos, scopes);
 	}
 
 
-	public JkDependencySet getDependencies() {
-		return dependencies;
+	public JkScopedDependency getDependency() {
+		return dependency;
 	}
 
-	public JkRepoSet getRepos() {
-		return repos;
+	public boolean isModule() {
+		return dependency.getDependency() instanceof JkModuleDependency;
 	}
 
-	public JkDependencyResolver getResolver() {
-		if (resolver == null) {
-			resolver = JkDependencyResolver.of(repos);
+	public JkModuleId getModuleID() {
+		JkDependency dependency = this.dependency.getDependency();
+
+		if (dependency instanceof JkModuleDependency) {
+			return ((JkModuleDependency) dependency).getModuleId();
+		} else {
+			throw new IllegalArgumentException("Tried to get the module ID for a non-module dependency: " + dependency);
 		}
-
-		return resolver;
 	}
 
-	public JkResolveResult resolve() {
-		return getResolver().resolve(dependencies, scopes);
-	}
-
-	public JkPathSequence resolveToSequence() {
-		return resolve().assertNoError().getFiles();
-	}
-
-	public List<Path> resolveToPaths() {
-		return resolveToSequence().getEntries();
+	public JkVersion getResolvedVersion() {
+		return resolve().assertNoError().getVersionOf(getModuleID());
 	}
 
 	@Override
 	public String toString() {
-		StringBuilder out = new StringBuilder().append(dependencies).append(" from ").append(repos);
+		StringBuilder out = new StringBuilder().append(dependency).append(" from ").append(repos);
 		if (scopes.length > 0) out.append(" for ").append(Arrays.toString(scopes));
 		return out.toString();
 	}

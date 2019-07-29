@@ -15,7 +15,7 @@ import dev.jeka.core.api.system.JkException;
 import dev.jeka.core.api.system.JkLog;
 import dev.jeka.core.api.utils.JkUtilsPath;
 
-import com.chocohead.loom.FullDependency;
+import com.chocohead.loom.FullDependencies;
 import com.chocohead.loom.minecraft.MappingResolver.MappingFactory;
 import com.chocohead.loom.minecraft.MinecraftVersion.Library;
 import com.chocohead.loom.util.FileUtils;
@@ -35,7 +35,7 @@ public class MinecraftResolver {
 	private static final String MAPPED_JAR = "merged-%s.jar";
 
 	protected final MinecraftVersion version;
-	protected final FullDependency libraries;
+	protected final FullDependencies libraries;
 	protected final boolean split;
 
 	protected final Path cache;
@@ -81,7 +81,7 @@ public class MinecraftResolver {
 		}
 	}
 
-	protected FullDependency resolveLibraries() {
+	protected FullDependencies resolveLibraries() {
 		List<JkScopedDependency> dependencies = new ArrayList<>();
 
 		for (Library library : version.libraries) {
@@ -91,7 +91,7 @@ public class MinecraftResolver {
 		}
 
 		//Could check all the libraries start with the same repo URL?
-		return FullDependency.of(JkDependencySet.of(dependencies), JkRepoSet.of("https://libraries.minecraft.net"), JkJavaDepScopes.SCOPES_FOR_COMPILATION);
+		return FullDependencies.of(JkDependencySet.of(dependencies), JkRepoSet.of("https://libraries.minecraft.net"), JkJavaDepScopes.SCOPES_FOR_COMPILATION);
 	}
 
 	public Path getClient() {
