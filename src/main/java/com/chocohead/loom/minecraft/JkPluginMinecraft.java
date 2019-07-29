@@ -75,7 +75,7 @@ public class JkPluginMinecraft extends JkPlugin {
 		JkLog.endTask();
 
 		JkLog.startTask("Resolving mappings");
-		MappingResolver mappings = new MappingResolver(resolver.cache, yarn, loom.runOffline);
+		MappingResolver mappings = new MappingResolver(resolver.cache, version, yarn, loom.runOffline);
 		JkLog.endTask();
 
 		JkLog.startTask("Merging Minecraft jars");
