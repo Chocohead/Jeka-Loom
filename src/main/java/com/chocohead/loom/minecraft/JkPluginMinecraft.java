@@ -82,7 +82,9 @@ public class JkPluginMinecraft extends JkPlugin {
 		resolver.makeIntermediary(mappings.getIntermediaries());
 		JkLog.endTask();
 
+		JkLog.startTask("Preparing mappings");
 		mappings.postMerge(resolver.getMerged());
+		JkLog.endTask();
 
 		JkLog.startTask("Remapping Minecraft jar");
 		resolver.makeMapped(mappings.getMappingName(), mappings.getNamed());

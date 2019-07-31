@@ -171,7 +171,7 @@ public class MinecraftResolver {
 					.rebuildSourceFilenames(true)
 					.build();
 
-			try (OutputConsumerPath outputConsumer = new OutputConsumerPath(jar)) {
+			try (OutputConsumerPath outputConsumer = new OutputConsumerPath(output)) {
 				outputConsumer.addNonClassFiles(jar);
 				remapper.readClassPath(libraries.withScopes(JkJavaDepScopes.SCOPES_FOR_COMPILATION).resolveToPaths().toArray(new Path[0]));
 				remapper.readInputs(jar);
