@@ -3,6 +3,7 @@ package com.chocohead.loom.minecraft;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.lang.ref.SoftReference;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
@@ -31,8 +32,15 @@ import dev.jeka.core.api.system.JkLog;
 
 import com.chocohead.loom.FullDependency;
 
+import net.fabricmc.mappings.ClassEntry;
+import net.fabricmc.mappings.EntryTriple;
+import net.fabricmc.mappings.FieldEntry;
+import net.fabricmc.mappings.Mappings;
+import net.fabricmc.mappings.MappingsProvider;
+import net.fabricmc.mappings.MethodEntry;
 import net.fabricmc.stitch.commands.CommandProposeFieldNames;
 import net.fabricmc.tinyremapper.IMappingProvider;
+import net.fabricmc.tinyremapper.MemberInstance;
 
 public class MappingResolver {
 	/** An {@link IOException} throwing {@link BiPredicate}{@code <}String, String, IMappingProvider{@code >} */
@@ -44,6 +52,7 @@ public class MappingResolver {
 		public final Path cache;
 		protected final Path mappings;
 		public final JkVersionedModule version;
+		private final boolean hasVersion;
 		private final String minecraft;
 		private final String mappingVersion, mappingMC;
 
@@ -53,8 +62,8 @@ public class MappingResolver {
 			this.version = version;
 			this.minecraft = minecraft;
 
-			if (hasVersion()) {
-				String mappingVersion = getVersion();
+			if (hasVersion = !version.getVersion().isUnspecified()) {
+				String mappingVersion = getFullVersion();
 
 				if (mappingVersion.contains("+build.")) {
 					mappingMC = mappingVersion.substring(0, mappingVersion.lastIndexOf('+'));
@@ -79,7 +88,8 @@ public class MappingResolver {
 		}
 
 		public boolean hasVersion() {
-			return !version.getVersion().isUnspecified();
+			assert !version.getVersion().isUnspecified();
+			return hasVersion;
 		}
 
 		public String getFullVersion() {
@@ -149,6 +159,24 @@ public class MappingResolver {
 
 		public abstract void populateCache(boolean offline);
 
+		protected static final IMappingProvider makeProvider(Mappings mappings, String from, String to) {
+			return (classes, fields, methods) -> {
+				for (ClassEntry entry : mappings.getClassEntries()) {
+					classes.put(entry.get(from), entry.get(to));
+				}
+
+				for (FieldEntry entry : mappings.getFieldEntries()) {
+					EntryTriple fromTriple = entry.get(from);
+					fields.put(fromTriple.getOwner() + '/' + MemberInstance.getFieldId(fromTriple.getName(), fromTriple.getDesc()), entry.get(to).getName());
+				}
+
+				for (MethodEntry entry : mappings.getMethodEntries()) {
+					EntryTriple fromTriple = entry.get(from);
+					methods.put(fromTriple.getOwner() + '/' + MemberInstance.getMethodId(fromTriple.getName(), fromTriple.getDesc()), entry.get(to).getName());
+				}
+			};
+		}
+
 		public abstract MappingFactory makeIntermediaryMapper();
 
 		protected final Path makeNormal() {
@@ -175,6 +203,8 @@ public class MappingResolver {
 	}
 
 	public static class TinyMappings extends MappingType {
+		private SoftReference<Mappings> interMappings, namedMappings;
+
 		public TinyMappings(Path cache, Path mappings, JkVersionedModule version, String minecraft) {
 			super(cache, mappings, version, minecraft);
 		}
@@ -193,14 +223,38 @@ public class MappingResolver {
 
 		@Override
 		public MappingFactory makeIntermediaryMapper() {
-			// TODO Auto-generated method stub
-			return null;
+			Mappings mappings = interMappings == null ? null : interMappings.get();
+
+			if (mappings == null) {
+				try (InputStream in = Files.newInputStream(makeBase())) {
+					mappings = MappingsProvider.readTinyMappings(in, false);
+				} catch (IOException e) {
+					throw new UncheckedIOException("Error reading mappings", e);
+				}
+
+				interMappings = new SoftReference<>(mappings);
+			}
+
+			final Mappings veryMappings = mappings; //Like mappings but very final
+			return (from, to) -> makeProvider(veryMappings, from, to);
 		}
 
 		@Override
 		public MappingFactory makeNamedMapper() {
-			// TODO Auto-generated method stub
-			return null;
+			Mappings mappings = namedMappings == null ? null : namedMappings.get();
+
+			if (mappings == null) {
+				try (InputStream in = Files.newInputStream(makeNormal())) {
+					mappings = MappingsProvider.readTinyMappings(in, false);
+				} catch (IOException e) {
+					throw new UncheckedIOException("Error reading mappings", e);
+				}
+
+				namedMappings = new SoftReference<>(mappings);
+			}
+
+			final Mappings veryMappings = mappings; //Like mappings but very final
+			return (from, to) -> makeProvider(veryMappings, from, to);
 		}
 
 		@Override
@@ -355,6 +409,17 @@ public class MappingResolver {
 		if (type.isMissingFiles()) {
 			type.populateCache(offline);
 		}
+	}
+
+	public String getMappingName() {
+		StringBuilder path = new StringBuilder(type.getName());
+
+		if (type.hasVersion()) {
+			path.append('-');
+			path.append(type.getVersion());
+		}
+
+		return path.toString();
 	}
 
 	public MappingFactory getIntermediaries() {

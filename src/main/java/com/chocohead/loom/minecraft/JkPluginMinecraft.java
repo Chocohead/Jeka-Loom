@@ -85,7 +85,7 @@ public class JkPluginMinecraft extends JkPlugin {
 		mappings.postMerge(resolver.getMerged());
 
 		JkLog.startTask("Remapping Minecraft jar");
-		resolver.makeMapped(mappings.getNamed());
+		resolver.makeMapped(mappings.getMappingName(), mappings.getNamed());
 		JkLog.endTask();
 		JkLog.endTask();
 	}

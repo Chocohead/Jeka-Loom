@@ -18,8 +18,8 @@ import dev.jeka.core.api.utils.JkUtilsPath;
 import com.chocohead.loom.FullDependencies;
 import com.chocohead.loom.minecraft.MappingResolver.MappingFactory;
 import com.chocohead.loom.minecraft.MinecraftVersion.Library;
-import com.chocohead.loom.util.FileUtils;
 import com.chocohead.loom.util.DownloadUtil;
+import com.chocohead.loom.util.FileUtils;
 
 import net.fabricmc.stitch.merge.JarMerger;
 import net.fabricmc.tinyremapper.OutputConsumerPath;
@@ -167,8 +167,8 @@ public class MinecraftResolver {
 		return split ? mergedJar : intermediaryJar;
 	}
 
-	public void makeMapped(MappingFactory mappings) {
-
+	public void makeMapped(String mappingName, MappingFactory mappings) {
+		remapIfMissing(getIntermediary(), mappedJar = cache.resolve(String.format(MAPPED_JAR, mappingName)), mappings, "intermediary", "named");
 	}
 
 	public Path getMapped() {
