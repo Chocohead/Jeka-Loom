@@ -1,17 +1,28 @@
 package com.chocohead.loom.minecraft;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.BiPredicate;
+import java.util.zip.GZIPInputStream;
 
 import org.apache.commons.io.FilenameUtils;
 
 import com.google.common.collect.Iterables;
 
+import dev.jeka.core.api.depmanagement.JkComputedDependency;
+import dev.jeka.core.api.depmanagement.JkDependency;
+import dev.jeka.core.api.depmanagement.JkFileSystemDependency;
 import dev.jeka.core.api.depmanagement.JkModuleId;
 import dev.jeka.core.api.depmanagement.JkResolveResult;
 import dev.jeka.core.api.depmanagement.JkVersionedModule;
@@ -20,6 +31,7 @@ import dev.jeka.core.api.system.JkLog;
 
 import com.chocohead.loom.FullDependency;
 
+import net.fabricmc.stitch.commands.CommandProposeFieldNames;
 import net.fabricmc.tinyremapper.IMappingProvider;
 
 public class MappingResolver {
@@ -103,31 +115,16 @@ public class MappingResolver {
 
 	public enum MappingType {
 		TINY {
-			private boolean missingOrOld(Path path, FileTime creation) {
-				if (Files.notExists(path)) return true;
-
-				try {
-					return Files.getLastModifiedTime(path).compareTo(creation) < 0;
-				} catch (IOException e) {
-					throw new UncheckedIOException("Error getting last modification time of path", e);
-				}
-			}
-
-			@Override
-			public boolean isMissingFiles(Path cache, Mappings mappings) {
-				if (mappings.hasVersion()) {
-					String mapped = mappings.getName() + "-tiny-" + mappings.getVersion(); //Rely on having a concrete version to determine whether the file is out of date
-					return Files.notExists(cache.resolve(mapped + "-base.jar")) /*|| Files.notExists(cache.resolve(mapped + ".jar"))*/;
-				} else {
-					String mapped = mappings.getName() + "-tiny";
-					return missingOrOld(cache.resolve(mapped + "-base.jar"), mappings.creationTime()) /*|| missingOrOld(cache.resolve(mapped + ".jar"), mappings.creationTime())*/;
-				}
-			}
-
 			@Override
 			public void populateCache(Path cache, Mappings mappings, boolean offline) {
-				// TODO Auto-generated method stub
+				Path base = makeBase(cache, mappings);
+				//JkUtilsPath.deleteIfExists(base);
 
+				try (FileSystem fs = FileSystems.newFileSystem(mappings.mappings, null)) {
+					Files.copy(fs.getPath("mappings/mappings.tiny"), base, StandardCopyOption.REPLACE_EXISTING);
+				} catch (IOException e) {
+					throw new UncheckedIOException("Error extracting mappings", e);
+				}
 			}
 
 			@Override
@@ -137,27 +134,27 @@ public class MappingResolver {
 			}
 
 			@Override
-			public void enhanceMappings(Path cache, Path mergedJar) {
-				// TODO Auto-generated method stub
-
-			}
-
-			@Override
 			public MappingFactory makeNamedMapper(Path cache) {
 				// TODO Auto-generated method stub
 				return null;
 			}
+
+			@Override
+			public JkDependency asDependency(Path cache, Mappings mappings) {
+				return JkFileSystemDependency.of(mappings.mappings);
+			}
 		},
 		TINY_GZ {
 			@Override
-			public boolean isMissingFiles(Path cache, Mappings mappings) {
-				return TINY.isMissingFiles(cache, mappings);
-			}
-
-			@Override
 			public void populateCache(Path cache, Mappings mappings, boolean offline) {
-				// TODO Auto-generated method stub
+				Path base = makeBase(cache, mappings);
+				//JkUtilsPath.deleteIfExists(base);
 
+				try (InputStream in = new GZIPInputStream(Files.newInputStream(mappings.mappings))) {
+					Files.copy(in, base, StandardCopyOption.REPLACE_EXISTING);
+				} catch (IOException e) {
+					throw new UncheckedIOException("Error extracting mappings", e);
+				}
 			}
 
 			@Override
@@ -166,20 +163,57 @@ public class MappingResolver {
 			}
 
 			@Override
-			public void enhanceMappings(Path cache, Path mergedJar) {
-				TINY.enhanceMappings(cache, mergedJar);
-			}
-
-			@Override
 			public MappingFactory makeNamedMapper(Path cache) {
 				return TINY.makeNamedMapper(cache);
 			}
+
+			@Override
+			public JkDependency asDependency(Path cache, Mappings mappings) {
+				Path jar = cache.resolve(makePath(mappings, "tiny").append(".jar").toString());
+
+				return JkComputedDependency.of(() -> {
+					Path base = makeBase(cache, mappings); //Strictly it doesn't need doing, but it's logical for it to have been done
+					if (Files.notExists(base)) throw new IllegalStateException("Need mappings extracting before creating dependency");
+
+					try (FileSystem fs = FileSystems.newFileSystem(new URI("jar:" + jar.toUri()), Collections.singletonMap("create", "true"))) {
+						Path destination = fs.getPath("mappings/mappings.tiny");
+
+						Files.createDirectories(destination.getParent());
+						Files.copy(base, destination, StandardCopyOption.REPLACE_EXISTING);
+					} catch (URISyntaxException e) {
+						throw new IllegalStateException("Cannot convert jar to URI?", e);
+					} catch (IOException e) {
+						throw new UncheckedIOException("Error creating mappings", e);
+					}
+				}, jar);
+			}
 		},
 		ENIGMA {
+			private final Path makeInters(Path cache, Mappings mappings) {
+				StringBuilder path = new StringBuilder(mappings.getName());
+				path.append("-intermediary-");
+
+				if (mappings.hasVersion()) {
+					path.append(mappings.getMappingMC());
+				} else {
+					path.append(mappings.getMC());
+				}
+
+				return cache.resolve(path.append(".tiny").toString());
+			}
+
+			private final Path makeParams(Path cache, Mappings mappings) {
+				return cache.resolve(makePath(mappings, "params").append("-base.tiny").toString());
+			}
+
 			@Override
 			public boolean isMissingFiles(Path cache, Mappings mappings) {
-				// TODO Auto-generated method stub
-				return false;
+				Path inters = makeInters(cache, mappings);
+				Path base = makeBase(cache, mappings);
+				Path params = makeParams(cache, mappings);
+
+				//The Intermediary and parameter map files are both generated as needed, so even without a version it's hard to say when they're too old by creation time
+				return Files.notExists(inters) || (mappings.hasVersion() ? Files.notExists(base) : missingOrOld(base, mappings.creationTime())) || Files.notExists(params);
 			}
 
 			@Override
@@ -195,31 +229,79 @@ public class MappingResolver {
 			}
 
 			@Override
-			public void enhanceMappings(Path cache, Path mergedJar) {
+			public MappingFactory makeNamedMapper(Path cache) {
 				// TODO Auto-generated method stub
-
+				return null;
 			}
 
 			@Override
-			public MappingFactory makeNamedMapper(Path cache) {
+			public JkDependency asDependency(Path cache, Mappings mappings) {
 				// TODO Auto-generated method stub
 				return null;
 			}
 		};
 
-		public abstract boolean isMissingFiles(Path cache, Mappings mappings);
+		protected final boolean missingOrOld(Path path, FileTime creation) {
+			if (Files.notExists(path)) return true;
+
+			try {
+				return Files.getLastModifiedTime(path).compareTo(creation) < 0;
+			} catch (IOException e) {
+				throw new UncheckedIOException("Error getting last modification time of path", e);
+			}
+		}
+
+		protected final StringBuilder makePath(Mappings mappings, String name) {
+			StringBuilder path = new StringBuilder(mappings.getName());
+			path.append('-');
+			path.append(name);
+
+			if (mappings.hasVersion()) {
+				path.append('-');
+				path.append(mappings.getVersion());
+			}
+
+			return path;
+		}
+
+		protected final Path makeBase(Path cache, Mappings mappings) {
+			return cache.resolve(makePath(mappings, "tiny").append("-base.tiny").toString());
+		}
+
+		public boolean isMissingFiles(Path cache, Mappings mappings) {
+			Path mapped = makeBase(cache, mappings);
+
+			if (mappings.hasVersion()) {//Rely on having a concrete version to determine whether the file is out of date
+				return Files.notExists(mapped);
+			} else {
+				return missingOrOld(mapped, mappings.creationTime());
+			}
+		}
 
 		public abstract void populateCache(Path cache, Mappings mappings, boolean offline);
 
 		public abstract MappingFactory makeIntermediaryMapper(Path cache);
 
-		public abstract void enhanceMappings(Path cache, Path mergedJar);
+		protected final Path makeNormal(Path cache, Mappings mappings) {
+			return cache.resolve(makePath(mappings, "tiny").append(".jar").toString());
+		}
+
+		public void enhanceMappings(Path cache, Path mergedJar, Mappings mappings) {
+			try {
+				CommandProposeFieldNames.run(mergedJar.toFile(), makeBase(cache, mappings).toFile(), makeNormal(cache, mappings).toFile(), "intermediary", "named");
+			} catch (IOException e) {
+				throw new UncheckedIOException("Error proposing field names", e);
+			}
+		}
 
 		public abstract MappingFactory makeNamedMapper(Path cache);
+
+		public abstract JkDependency asDependency(Path cache, Mappings mappings);
 	}
 
 	protected final Path cache;
 	protected final MappingType type;
+	protected final Mappings mappings;
 	protected MappingFactory intermediaryMapper, namedMapper;
 
 	public MappingResolver(Path cache, String minecraft, FullDependency yarn, boolean offline) {
@@ -267,7 +349,7 @@ public class MappingResolver {
 		} else {
 			version = JkVersionedModule.ofUnspecifiedVerion(JkModuleId.of("net.fabricmc.synthetic", FilenameUtils.removeExtension(origin.getFileName().toString())));
 		}
-		Mappings mappings = new Mappings(origin, version, minecraft);
+		mappings = new Mappings(origin, version, minecraft);
 
 		if (type.isMissingFiles(cache, mappings)) {
 			type.populateCache(cache, mappings, offline);
@@ -283,7 +365,7 @@ public class MappingResolver {
 	}
 
 	public void postMerge(Path mergedJar) {
-		type.enhanceMappings(cache, mergedJar);
+		type.enhanceMappings(cache, mergedJar, mappings);
 	}
 
 	public MappingFactory getNamed() {
@@ -292,5 +374,9 @@ public class MappingResolver {
 		}
 
 		return namedMapper;
+	}
+
+	public JkDependency asDependency() {
+		return type.asDependency(cache, mappings);
 	}
 }
