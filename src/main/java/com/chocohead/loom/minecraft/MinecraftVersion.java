@@ -92,6 +92,10 @@ public class MinecraftVersion {
 
 			return false;
 		}
+
+		public boolean hasNativeFor(OperatingSystem os) {
+			return natives != null && natives.containsKey(os);
+		}
 	}
 
 	public static class Download {
