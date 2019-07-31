@@ -6,6 +6,7 @@ import java.io.UncheckedIOException;
 import java.lang.ref.SoftReference;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -20,6 +21,7 @@ import java.util.zip.GZIPInputStream;
 import org.apache.commons.io.FilenameUtils;
 
 import com.google.common.collect.Iterables;
+import com.google.common.net.UrlEscapers;
 
 import dev.jeka.core.api.depmanagement.JkComputedDependency;
 import dev.jeka.core.api.depmanagement.JkDependency;
@@ -138,6 +140,8 @@ public class MappingResolver {
 			if (hasVersion()) {
 				path.append('-');
 				path.append(getVersion());
+				path.append('-');
+				path.append(getMappingMC());
 			}
 
 			return path;
@@ -164,23 +168,29 @@ public class MappingResolver {
 				for (ClassEntry entry : mappings.getClassEntries()) {
 					classes.put(entry.get(from), entry.get(to));
 				}
+				assert !classes.containsKey(null);
+				assert !classes.containsValue(null);
 
 				for (FieldEntry entry : mappings.getFieldEntries()) {
 					EntryTriple fromTriple = entry.get(from);
 					fields.put(fromTriple.getOwner() + '/' + MemberInstance.getFieldId(fromTriple.getName(), fromTriple.getDesc()), entry.get(to).getName());
 				}
+				assert !fields.containsKey(null);
+				assert !fields.containsValue(null);
 
 				for (MethodEntry entry : mappings.getMethodEntries()) {
 					EntryTriple fromTriple = entry.get(from);
 					methods.put(fromTriple.getOwner() + '/' + MemberInstance.getMethodId(fromTriple.getName(), fromTriple.getDesc()), entry.get(to).getName());
 				}
+				assert !methods.containsKey(null);
+				assert !methods.containsValue(null);
 			};
 		}
 
 		public abstract MappingFactory makeIntermediaryMapper();
 
 		protected final Path makeNormal() {
-			return cache.resolve(makePath("tiny").append(".jar").toString());
+			return cache.resolve(makePath("tiny").append(".tiny").toString());
 		}
 
 		public void enhanceMappings(Path mergedJar) {
@@ -308,20 +318,11 @@ public class MappingResolver {
 		}
 
 		private final Path makeInters() {
-			StringBuilder path = new StringBuilder(getName());
-			path.append("-intermediary-");
-
-			if (hasVersion()) {
-				path.append(getMappingMC());
-			} else {
-				path.append(getMC());
-			}
-
-			return cache.resolve(path.append(".tiny").toString());
+			return cache.resolve(makePath("intermediary").append(".tiny").toString());
 		}
 
 		private final Path makeParams() {
-			return cache.resolve(makePath("params").append("-base.tiny").toString());
+			return cache.resolve(makePath("params").append(".tiny").toString());
 		}
 
 		@Override
@@ -336,8 +337,21 @@ public class MappingResolver {
 
 		@Override
 		public void populateCache(boolean offline) {
-			// TODO Auto-generated method stub
+			Path inters = makeInters();
+			Path base = makeBase();
+			Path params = makeParams();
 
+			if (Files.notExists(inters)) {
+				String minecraft = hasVersion() ? getMappingMC() : getMC();
+
+				try (InputStream in = new URL("https://github.com/FabricMC/intermediary/raw/master/mappings/" + UrlEscapers.urlPathSegmentEscaper().escape(minecraft) + ".tiny").openStream()) {
+					Files.copy(in, inters, StandardCopyOption.REPLACE_EXISTING);
+				} catch (IOException e) {
+					throw new UncheckedIOException("Error downloading Intermediaries", e);
+				}
+			}
+
+			// TODO Auto-generated method stub
 		}
 
 		@Override
