@@ -23,13 +23,11 @@ class Build extends JkCommands {
 				.and("com.google.guava:guava:28.0-jre")
 				.and("com.google.code.gson:gson:2.8.5")
 				.and("com.github.Chocohead:Stitch:529051f")
-				.and("com.github.Chocohead:tiny-remapper:ddc99f7")
-				.and("org.junit.jupiter:junit-jupiter:5.5.1", JkJavaDepScopes.TEST));
-	}
+				.and("com.github.Chocohead:tiny-remapper:c13c04c")
+				.and("org.junit.jupiter:junit-jupiter:5.5.1", JkJavaDepScopes.TEST)
+				.and("org.junit.platform:junit-platform-launcher:1.5.1", JkJavaDepScopes.TEST));
 
-	@Override
-	protected void setupAfterPluginActivations() {
-		JkJavaProjectMaker project = javaPlugin.getProject().getMaker();
-		project.setDependencyResolver(project.getDependencyResolver().andRepos(JkRepoSet.of("https://maven.fabricmc.net", "https://jitpack.io/")));
+		JkJavaProjectMaker maker = project.getMaker();
+		maker.setDependencyResolver(maker.getDependencyResolver().andRepos(JkRepoSet.of("https://maven.fabricmc.net", "https://jitpack.io/")));
 	}
 }
