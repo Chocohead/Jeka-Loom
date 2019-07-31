@@ -9,6 +9,7 @@ import java.util.List;
 import dev.jeka.core.api.depmanagement.JkDependencySet;
 import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
 import dev.jeka.core.api.depmanagement.JkModuleDependency;
+import dev.jeka.core.api.depmanagement.JkRepo;
 import dev.jeka.core.api.depmanagement.JkRepoSet;
 import dev.jeka.core.api.depmanagement.JkScopedDependency;
 import dev.jeka.core.api.system.JkException;
@@ -91,7 +92,7 @@ public class MinecraftResolver {
 		}
 
 		//Could check all the libraries start with the same repo URL?
-		return FullDependencies.of(JkDependencySet.of(dependencies), JkRepoSet.of("https://libraries.minecraft.net"), JkJavaDepScopes.SCOPES_FOR_COMPILATION);
+		return FullDependencies.of(JkDependencySet.of(dependencies), JkRepoSet.of("https://libraries.minecraft.net").and(JkRepoSet.of(JkRepo.ofMavenCentral(), JkRepo.ofMavenJCenter())), JkJavaDepScopes.SCOPES_FOR_COMPILATION);
 	}
 
 	public Path getClient() {
