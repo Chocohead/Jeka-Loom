@@ -194,10 +194,14 @@ public class MappingResolver {
 		}
 
 		public void enhanceMappings(Path mergedJar) {
-			try {
-				CommandProposeFieldNames.run(mergedJar.toFile(), makeBase().toFile(), makeNormal().toFile(), "intermediary", "named");
-			} catch (IOException e) {
-				throw new UncheckedIOException("Error proposing field names", e);
+			Path normal = makeNormal();
+
+			if (Files.notExists(normal)) {
+				try {
+					CommandProposeFieldNames.run(mergedJar.toFile(), makeBase().toFile(), normal.toFile(), "intermediary", "named");
+				} catch (IOException e) {
+					throw new UncheckedIOException("Error proposing field names", e);
+				}
 			}
 		}
 
@@ -233,38 +237,40 @@ public class MappingResolver {
 
 		@Override
 		public MappingFactory makeIntermediaryMapper() {
-			Mappings mappings = interMappings == null ? null : interMappings.get();
+			return (from, to) -> {
+				Mappings mappings = interMappings == null ? null : interMappings.get();
 
-			if (mappings == null) {
-				try (InputStream in = Files.newInputStream(makeBase())) {
-					mappings = MappingsProvider.readTinyMappings(in, false);
-				} catch (IOException e) {
-					throw new UncheckedIOException("Error reading mappings", e);
+				if (mappings == null) {
+					try (InputStream in = Files.newInputStream(makeBase())) {
+						mappings = MappingsProvider.readTinyMappings(in, false);
+					} catch (IOException e) {
+						throw new UncheckedIOException("Error reading mappings", e);
+					}
+
+					interMappings = new SoftReference<>(mappings);
 				}
 
-				interMappings = new SoftReference<>(mappings);
-			}
-
-			final Mappings veryMappings = mappings; //Like mappings but very final
-			return (from, to) -> makeProvider(veryMappings, from, to);
+				return makeProvider(mappings, from, to);
+			};
 		}
 
 		@Override
 		public MappingFactory makeNamedMapper() {
-			Mappings mappings = namedMappings == null ? null : namedMappings.get();
+			return (from, to) -> {
+				Mappings mappings = namedMappings == null ? null : namedMappings.get();
 
-			if (mappings == null) {
-				try (InputStream in = Files.newInputStream(makeNormal())) {
-					mappings = MappingsProvider.readTinyMappings(in, false);
-				} catch (IOException e) {
-					throw new UncheckedIOException("Error reading mappings", e);
+				if (mappings == null) {
+					try (InputStream in = Files.newInputStream(makeNormal())) {
+						mappings = MappingsProvider.readTinyMappings(in, false);
+					} catch (IOException e) {
+						throw new UncheckedIOException("Error reading mappings", e);
+					}
+
+					namedMappings = new SoftReference<>(mappings);
 				}
 
-				namedMappings = new SoftReference<>(mappings);
-			}
-
-			final Mappings veryMappings = mappings; //Like mappings but very final
-			return (from, to) -> makeProvider(veryMappings, from, to);
+				return makeProvider(mappings, from, to);
+			};
 		}
 
 		@Override
@@ -379,7 +385,6 @@ public class MappingResolver {
 	public MappingResolver(Path cache, String minecraft, FullDependency yarn, boolean offline) {
 		JkResolveResult result = yarn.resolve().assertNoError();
 		List<Path> paths = result.getFiles().getEntries();
-		System.out.println(paths);
 
 		Path origin;
 		switch (paths.size()) {
@@ -419,6 +424,7 @@ public class MappingResolver {
 		default:
 			throw new JkException("Unexpected mappings base type: " + FilenameUtils.getExtension(origin.getFileName().toString()) + " (from " + origin + ')');
 		}
+		JkLog.trace("Mappings are of type " + type);
 
 		if (type.isMissingFiles()) {
 			type.populateCache(offline);

@@ -9,10 +9,13 @@ import java.util.List;
 import dev.jeka.core.api.depmanagement.JkDependencySet;
 import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
 import dev.jeka.core.api.depmanagement.JkModuleDependency;
+import dev.jeka.core.api.depmanagement.JkModuleId;
 import dev.jeka.core.api.depmanagement.JkRepo;
 import dev.jeka.core.api.depmanagement.JkRepoSet;
 import dev.jeka.core.api.depmanagement.JkScopeMapping;
 import dev.jeka.core.api.depmanagement.JkScopedDependency;
+import dev.jeka.core.api.depmanagement.JkVersion;
+import dev.jeka.core.api.depmanagement.JkVersionedModule;
 import dev.jeka.core.api.system.JkException;
 import dev.jeka.core.api.system.JkLog;
 import dev.jeka.core.api.utils.JkUtilsPath;
@@ -69,7 +72,9 @@ public class MinecraftResolver {
 		}
 
 		libraries = resolveLibraries();
+		libraries.setModuleHolder(JkVersionedModule.of(JkModuleId.of("com.mojang", "minecraft"), JkVersion.of(version.id)));
 		libraryNatives = resolveLibraryNatives();
+		libraryNatives.setModuleHolder(JkVersionedModule.of(JkModuleId.of("com.mojang", "minecraft"), JkVersion.of(version.id)));
 	}
 
 	private void downloadIfNeeded(String jarName, Path jar) {
