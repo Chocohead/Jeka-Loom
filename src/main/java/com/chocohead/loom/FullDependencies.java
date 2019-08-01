@@ -11,6 +11,7 @@ import dev.jeka.core.api.depmanagement.JkRepo;
 import dev.jeka.core.api.depmanagement.JkRepoSet;
 import dev.jeka.core.api.depmanagement.JkResolveResult;
 import dev.jeka.core.api.depmanagement.JkScope;
+import dev.jeka.core.api.depmanagement.JkVersionedModule;
 import dev.jeka.core.api.file.JkPathSequence;
 import dev.jeka.core.api.utils.JkUtilsAssert;
 
@@ -73,6 +74,10 @@ public class FullDependencies {
 		}
 
 		return resolver;
+	}
+
+	public void setModuleHolder(JkVersionedModule module) {
+		resolver = getResolver().withModuleHolder(module);
 	}
 
 	public JkResolveResult resolve() {
