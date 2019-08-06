@@ -39,4 +39,10 @@ public class JkPluginLoom extends JkPlugin {
 	protected void activate() {
 		JkLog.info("Loom activate");
 	}
+
+	public Path remapCache() {
+		Path cache = projectCache.resolve("remapped-mods");
+		JkUtilsPath.createDirectories(cache);
+		return cache;
+	}
 }

@@ -2,6 +2,7 @@ package com.chocohead.loom.minecraft;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
 
 import com.google.gson.Gson;
 
@@ -10,6 +11,7 @@ import dev.jeka.core.api.depmanagement.JkModuleDependency;
 import dev.jeka.core.api.depmanagement.JkRepo;
 import dev.jeka.core.api.system.JkException;
 import dev.jeka.core.api.system.JkLog;
+import dev.jeka.core.api.utils.JkUtilsPath;
 import dev.jeka.core.tool.JkCommands;
 import dev.jeka.core.tool.JkDoc;
 import dev.jeka.core.tool.JkDocPluginDeps;
@@ -36,6 +38,9 @@ public class JkPluginMinecraft extends JkPlugin {
 	public FullDependency yarn;
 	@JkDoc("Whether to remap the jars then merge (true) or merge the jars then remap (false)")
 	public boolean splitMerge = false;
+
+	protected MinecraftResolver resolver;
+	protected MappingResolver mappings;
 
 	protected JkPluginMinecraft(JkCommands commands) {
 		super(commands);
@@ -71,11 +76,11 @@ public class JkPluginMinecraft extends JkPlugin {
 		JkLog.endTask();
 
 		JkLog.startTask("Fetching Minecraft jars");
-		MinecraftResolver resolver = new MinecraftResolver(loom.globalCache.resolve(version), minecraft, splitMerge, loom.runOffline);
+		resolver = new MinecraftResolver(loom.globalCache.resolve(version), minecraft, splitMerge, loom.runOffline);
 		JkLog.endTask();
 
 		JkLog.startTask("Resolving mappings");
-		MappingResolver mappings = new MappingResolver(resolver.cache, version, yarn, loom.runOffline);
+		mappings = new MappingResolver(resolver.cache, version, yarn, loom.runOffline);
 		JkLog.endTask();
 
 		JkLog.startTask("Merging Minecraft jars");
@@ -105,5 +110,11 @@ public class JkPluginMinecraft extends JkPlugin {
 		} catch (IOException e) {
 			throw new UncheckedIOException("Error resolving Minecraft version: " + version, e);
 		}
+	}
+
+	public Path remapCache() {
+		Path cache = loom.remapCache().resolve(mappings.getMappingName());
+		JkUtilsPath.createDirectories(cache);
+		return cache;
 	}
 }
