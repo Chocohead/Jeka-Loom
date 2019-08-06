@@ -20,15 +20,15 @@ import dev.jeka.core.api.system.JkException;
 import dev.jeka.core.api.system.JkLog;
 import dev.jeka.core.api.utils.JkUtilsPath;
 
+import net.fabricmc.stitch.merge.JarMerger;
+import net.fabricmc.tinyremapper.OutputConsumerPath;
+import net.fabricmc.tinyremapper.TinyRemapper;
+
 import com.chocohead.loom.FullDependencies;
 import com.chocohead.loom.minecraft.MappingResolver.MappingFactory;
 import com.chocohead.loom.minecraft.MinecraftVersion.Library;
 import com.chocohead.loom.util.DownloadUtil;
 import com.chocohead.loom.util.FileUtils;
-
-import net.fabricmc.stitch.merge.JarMerger;
-import net.fabricmc.tinyremapper.OutputConsumerPath;
-import net.fabricmc.tinyremapper.TinyRemapper;
 
 public class MinecraftResolver {
 	private static final String CLIENT_JAR = "client.jar";
@@ -128,6 +128,14 @@ public class MinecraftResolver {
 
 	public Path getServer() {
 		return serverJar;
+	}
+
+	public FullDependencies getLibraries() {
+		return libraries;
+	}
+
+	public FullDependencies getAllLibraries() {
+		return libraries.and(libraryNatives);
 	}
 
 	public Path getMerged() {
