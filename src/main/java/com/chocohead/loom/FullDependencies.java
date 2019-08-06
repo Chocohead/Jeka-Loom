@@ -3,6 +3,7 @@ package com.chocohead.loom;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import dev.jeka.core.api.depmanagement.JkDependency;
 import dev.jeka.core.api.depmanagement.JkDependencyResolver;
@@ -14,6 +15,7 @@ import dev.jeka.core.api.depmanagement.JkScope;
 import dev.jeka.core.api.depmanagement.JkVersionedModule;
 import dev.jeka.core.api.file.JkPathSequence;
 import dev.jeka.core.api.utils.JkUtilsAssert;
+import dev.jeka.core.api.utils.JkUtilsIterable;
 
 public class FullDependencies {
 	private final JkDependencySet dependencies;
@@ -57,6 +59,12 @@ public class FullDependencies {
 
 	public FullDependencies withScopes(JkScope... scopes) {
 		return of(dependencies, repos, scopes);
+	}
+
+	public FullDependencies and(FullDependencies that) {
+		Set<JkScope> scopes = JkUtilsIterable.setOf(this.scopes);
+		JkUtilsIterable.addAllWithoutDuplicate(scopes, Arrays.asList(that.scopes));
+		return of(dependencies.and(that.dependencies), repos.and(that.repos), scopes.toArray(new JkScope[0]));
 	}
 
 
