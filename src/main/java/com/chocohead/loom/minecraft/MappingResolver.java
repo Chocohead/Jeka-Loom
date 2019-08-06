@@ -18,9 +18,8 @@ import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.zip.GZIPInputStream;
 
-import org.apache.commons.io.FilenameUtils;
-
 import com.google.common.collect.Iterables;
+import com.google.common.io.MoreFiles;
 import com.google.common.net.UrlEscapers;
 
 import dev.jeka.core.api.depmanagement.JkComputedDependency;
@@ -32,8 +31,6 @@ import dev.jeka.core.api.depmanagement.JkVersionedModule;
 import dev.jeka.core.api.system.JkException;
 import dev.jeka.core.api.system.JkLog;
 
-import com.chocohead.loom.FullDependency;
-
 import net.fabricmc.mappings.ClassEntry;
 import net.fabricmc.mappings.EntryTriple;
 import net.fabricmc.mappings.FieldEntry;
@@ -43,6 +40,8 @@ import net.fabricmc.mappings.MethodEntry;
 import net.fabricmc.stitch.commands.CommandProposeFieldNames;
 import net.fabricmc.tinyremapper.IMappingProvider;
 import net.fabricmc.tinyremapper.MemberInstance;
+
+import com.chocohead.loom.FullDependency;
 
 public class MappingResolver {
 	/** An {@link IOException} throwing {@link BiPredicate}{@code <}String, String, IMappingProvider{@code >} */
@@ -405,10 +404,10 @@ public class MappingResolver {
 			JkModuleId module = yarn.getModuleID();
 			version = module.withVersion(result.getVersionOf(module));
 		} else {
-			version = JkVersionedModule.ofUnspecifiedVerion(JkModuleId.of("net.fabricmc.synthetic", FilenameUtils.removeExtension(origin.getFileName().toString())));
+			version = JkVersionedModule.ofUnspecifiedVerion(JkModuleId.of("net.fabricmc.synthetic", MoreFiles.getNameWithoutExtension(origin)));
 		}
 
-		switch (FilenameUtils.getExtension(origin.getFileName().toString())) {
+		switch (MoreFiles.getFileExtension(origin)) {
 		case "zip":
 			type = new EngimaMappings(cache, origin, version, minecraft);
 			break;
@@ -422,7 +421,7 @@ public class MappingResolver {
 			break;
 
 		default:
-			throw new JkException("Unexpected mappings base type: " + FilenameUtils.getExtension(origin.getFileName().toString()) + " (from " + origin + ')');
+			throw new JkException("Unexpected mappings base type: " + MoreFiles.getNameWithoutExtension(origin) + " (from " + origin + ')');
 		}
 		JkLog.trace("Mappings are of type " + type);
 
