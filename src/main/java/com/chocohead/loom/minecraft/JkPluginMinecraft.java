@@ -2,13 +2,25 @@ package com.chocohead.loom.minecraft;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import com.google.common.collect.Iterables;
+import com.google.common.io.MoreFiles;
 import com.google.gson.Gson;
 
+import dev.jeka.core.api.depmanagement.JkComputedDependency;
+import dev.jeka.core.api.depmanagement.JkDependency;
 import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
 import dev.jeka.core.api.depmanagement.JkModuleDependency;
+import dev.jeka.core.api.depmanagement.JkModuleId;
 import dev.jeka.core.api.depmanagement.JkRepo;
+import dev.jeka.core.api.depmanagement.JkVersionedModule;
 import dev.jeka.core.api.system.JkException;
 import dev.jeka.core.api.system.JkLog;
 import dev.jeka.core.api.utils.JkUtilsPath;
@@ -17,9 +29,13 @@ import dev.jeka.core.tool.JkDoc;
 import dev.jeka.core.tool.JkDocPluginDeps;
 import dev.jeka.core.tool.JkPlugin;
 
+import net.fabricmc.tinyremapper.OutputConsumerPath;
+import net.fabricmc.tinyremapper.TinyRemapper;
+
 import com.chocohead.loom.FullDependency;
 import com.chocohead.loom.JkPluginLoom;
 import com.chocohead.loom.minecraft.MinecraftVersions.Version;
+import com.chocohead.loom.util.FileUtils;
 
 @JkDoc("Adds Minecraft support to Loom")
 @JkDocPluginDeps(JkPluginLoom.class)
@@ -116,5 +132,59 @@ public class JkPluginMinecraft extends JkPlugin {
 		Path cache = loom.remapCache().resolve(mappings.getMappingName());
 		JkUtilsPath.createDirectories(cache);
 		return cache;
+	}
+
+	public JkDependency modCompile(FullDependency dependency) {
+		Map<Path, Path> versions;
+		if (dependency.isModule()) {
+			versions = Collections.singletonMap(Iterables.getOnlyElement(dependency.resolveToPaths()),
+					remapName(dependency.getModuleID().withVersion(dependency.getResolvedVersion())));
+		} else {
+			versions = dependency.resolveToPaths().stream().collect(Collectors.toMap(Function.identity(), origin -> {
+				String name = MoreFiles.getNameWithoutExtension(origin);
+				return remapName(JkVersionedModule.ofUnspecifiedVerion(JkModuleId.of("net.fabricmc.synthetic", name)));
+			}));
+		}
+
+		return JkComputedDependency.of(() -> {
+			for (Entry<Path, Path> entry : versions.entrySet()) {
+				Path jar = entry.getKey();
+				Path output = entry.getValue();
+
+				if (Files.exists(output)) return; //Nothing to do (probably)
+
+				try {
+					TinyRemapper remapper = TinyRemapper.newRemapper()
+							.withMappings(mappings.getNamed().create("intermediary", "named"))
+							.renameInvalidLocals(true)
+							.build();
+
+					try (OutputConsumerPath outputConsumer = new OutputConsumerPath(output)) {
+						outputConsumer.addNonClassFiles(jar);
+						remapper.readClassPath(resolver.getLibraries().withScopes(JkJavaDepScopes.SCOPES_FOR_COMPILATION).resolveToPaths().toArray(new Path[0]));
+						remapper.readClassPath(resolver.getIntermediary());
+						remapper.readInputs(jar);
+
+						remapper.apply(outputConsumer);
+					}
+
+					remapper.finish();
+				} catch (IOException e) {
+					FileUtils.deleteAfterCrash(output, e);
+					throw new RuntimeException("Failed to remap jar", e);
+				}
+			}
+		}, versions.values().toArray(new Path[0]));
+	}
+
+	Path remapName(JkVersionedModule module) {
+		StringBuilder path = new StringBuilder(module.getModuleId().getDotedName());
+
+		if (!module.getVersion().isUnspecified()) {
+			path.append('-');
+			path.append(module.getVersion().getValue());
+		}
+
+		return remapCache().resolve(path.append(".jar").toString());
 	}
 }
