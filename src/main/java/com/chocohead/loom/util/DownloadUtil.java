@@ -54,6 +54,9 @@ public class DownloadUtil {
 		//We shouldn't need to set a user agent, but it's here just in case
 		//connection.setRequestProperty("User-Agent", null);
 
+		//We'll want to follow any 3xx redirects rather than download the redirect page
+		connection.setInstanceFollowRedirects(true);
+
 		//Try make the connection, it will hang here if the connection is bad
 		connection.connect();
 

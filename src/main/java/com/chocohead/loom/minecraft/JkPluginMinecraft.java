@@ -80,7 +80,10 @@ public class JkPluginMinecraft extends JkPlugin {
 				throw new JkException("Yarn version is not set for " + version);
 			} else {
 				JkLog.trace("Implying Yarn dependency from provided module: " + yarnModule);
-				yarn = FullDependency.of(JkModuleDependency.of(yarnModule), JkRepo.of("https://maven.fabricmc.net"), JkJavaDepScopes.COMPILE_AND_RUNTIME);
+				JkModuleDependency yarnDependency = JkModuleDependency.of(yarnModule);
+				yarn = FullDependency.of(yarnDependency, JkRepo.of("https://maven.fabricmc.net"), JkJavaDepScopes.COMPILE_AND_RUNTIME);
+				//Cache the resolved Yarn module, repackaged to avoid Ivy noticing the module holder is also the module it is trying to resolve
+				yarn.setModuleHolder(JkVersionedModule.of(JkModuleId.of("com.chocohead.loom", yarnDependency.getModuleId().getDotedName()), yarnDependency.getVersion()));
 			}
 		} else {
 			JkLog.trace("Using supplied Yarn dependency: " + yarn);

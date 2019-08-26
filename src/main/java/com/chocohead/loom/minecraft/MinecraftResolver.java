@@ -40,7 +40,7 @@ public class MinecraftResolver {
 	private static final String MAPPED_JAR = "merged-%s.jar";
 
 	protected final MinecraftVersion version;
-	protected final FullDependencies libraries, libraryNatives;
+	protected final FullDependencies libraries;
 	protected final boolean split;
 
 	protected final Path cache;
@@ -73,8 +73,6 @@ public class MinecraftResolver {
 
 		libraries = resolveLibraries();
 		libraries.setModuleHolder(JkVersionedModule.of(JkModuleId.of("com.mojang", "minecraft"), JkVersion.of(version.id)));
-		libraryNatives = resolveLibraryNatives();
-		libraryNatives.setModuleHolder(JkVersionedModule.of(JkModuleId.of("com.mojang", "minecraft"), JkVersion.of(version.id)));
 	}
 
 	private void downloadIfNeeded(String jarName, Path jar) {
@@ -91,31 +89,26 @@ public class MinecraftResolver {
 
 	protected FullDependencies resolveLibraries() {
 		List<JkScopedDependency> dependencies = new ArrayList<>();
+		OperatingSystem os = OperatingSystem.get();
+		JkScopeMapping normalMapping = JkScopeMapping.of(JkJavaDepScopes.PROVIDED).to("default(*)");
+		JkScopeMapping nativeMapping = JkScopeMapping.of(JkJavaDepScopes.RUNTIME).to("default(*)");
 
 		for (Library library : version.libraries) {
 			if (!library.shouldUse()) continue;
 
+			assert library.downloads.artifact != null; //Every library should declare a normal (non-native) artifact
 			JkScopedDependency dependency = JkScopedDependency.of(JkModuleDependency.of(library.name), JkJavaDepScopes.PROVIDED);
 			//Ivy doesn't seem to like LWJGL's xml, so it needs a little help to resolve properly
-			if (library.name.contains("lwjgl")) dependency = dependency.withScopeMapping(JkScopeMapping.ALL_TO_DEFAULT);
+			if (library.name.contains("lwjgl")) dependency = dependency.withScopeMapping(normalMapping);
 			dependencies.add(dependency);
-		}
 
-		//Could check all the libraries start with the same repo URL?
-		return FullDependencies.of(JkDependencySet.of(dependencies), JkRepoSet.of("https://libraries.minecraft.net").and(JkRepoSet.of(JkRepo.ofMavenCentral(), JkRepo.ofMavenJCenter())), JkJavaDepScopes.SCOPES_FOR_COMPILATION);
-	}
-
-	protected FullDependencies resolveLibraryNatives() {
-		List<JkScopedDependency> dependencies = new ArrayList<>();
-		OperatingSystem os = OperatingSystem.get();
-
-		for (Library library : version.libraries) {
-			if (!library.shouldUse() || !library.hasNativeFor(os)) continue;
-
-			JkScopedDependency dependency = JkScopedDependency.of(JkModuleDependency.of(library.name).withClassifier(library.natives.get(os)), JkJavaDepScopes.RUNTIME);
-			//The LWJGL natives also suffer from the same problem
-			if (library.name.contains("lwjgl")) dependency = dependency.withScopeMapping(JkScopeMapping.ALL_TO_DEFAULT);
-			dependencies.add(dependency);
+			if (library.hasNativeFor(os)) {
+				assert library.natives.get(os) != null;
+				dependency = JkScopedDependency.of(JkModuleDependency.of(library.name).withClassifier(library.natives.get(os)), JkJavaDepScopes.RUNTIME);
+				//The LWJGL natives also suffer from the same problem
+				if (library.name.contains("lwjgl")) dependency = dependency.withScopeMapping(nativeMapping);
+				dependencies.add(dependency);
+			}
 		}
 
 		//Could check all the libraries start with the same repo URL?
@@ -132,10 +125,6 @@ public class MinecraftResolver {
 
 	public FullDependencies getLibraries() {
 		return libraries;
-	}
-
-	public FullDependencies getAllLibraries() {
-		return libraries.and(libraryNatives);
 	}
 
 	public Path getMerged() {
