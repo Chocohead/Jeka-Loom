@@ -4,10 +4,11 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.function.Function;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.Iterables;
@@ -17,10 +18,12 @@ import com.google.gson.Gson;
 import dev.jeka.core.api.depmanagement.JkComputedDependency;
 import dev.jeka.core.api.depmanagement.JkDependency;
 import dev.jeka.core.api.depmanagement.JkDependencyNode;
+import dev.jeka.core.api.depmanagement.JkFileSystemDependency;
 import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
 import dev.jeka.core.api.depmanagement.JkModuleDependency;
 import dev.jeka.core.api.depmanagement.JkModuleId;
 import dev.jeka.core.api.depmanagement.JkRepo;
+import dev.jeka.core.api.depmanagement.JkScope;
 import dev.jeka.core.api.depmanagement.JkVersionedModule;
 import dev.jeka.core.api.system.JkException;
 import dev.jeka.core.api.system.JkLog;
@@ -139,29 +142,31 @@ public class JkPluginMinecraft extends JkPlugin {
 	}
 
 	public JkDependency modCompile(FullDependency dependency) {
-		Map<Path, Path> versions;
-		if (dependency.isModule()) {
-			versions = new HashMap<>();
+		Map<Path, Path> versions = dependency.resolve().getDependencyTree().toFlattenList().stream().<Collection<JkDependencyNode>>map(node -> {
+			switch (node.getNodeInfo().getFiles().size()) {
+			case 0: //Empty dependency apparently?
+				assert false: node;
+			return Collections.emptyList();
 
-			for (JkDependencyNode node : dependency.resolve().getDependencyTree().toFlattenList()) {
-				Path artifact = Iterables.getOnlyElement(node.getNodeInfo().getFiles());
+			case 1:
+				return Collections.singleton(node);
 
-				Path remap;
-				if (node.isModuleNode()) {
-					remap = remapName(node.getModuleInfo().getResolvedVersionedModule());
-				} else {
-					String name = MoreFiles.getNameWithoutExtension(artifact);
-					remap = remapName(JkVersionedModule.ofUnspecifiedVerion(JkModuleId.of("net.fabricmc.synthetic", name)));
-				}
-
-				versions.put(artifact, remap);
+			default:
+				assert !node.isModuleNode();
+				Set<JkScope> scope = node.getNodeInfo().getDeclaredScopes();
+				return node.getNodeInfo().getFiles().stream().map(JkFileSystemDependency::of).collect(Collectors.mapping(dep -> JkDependencyNode.ofFileDep(dep, scope), Collectors.toList()));
 			}
-		} else {
-			versions = dependency.resolveToPaths().stream().collect(Collectors.toMap(Function.identity(), origin -> {
-				String name = MoreFiles.getNameWithoutExtension(origin);
+		}).flatMap(Collection::stream).collect(Collectors.toMap(node -> {
+			return Iterables.getOnlyElement(node.getNodeInfo().getFiles());
+		}, node -> {
+			if (node.isModuleNode()) {
+				return remapName(node.getModuleInfo().getResolvedVersionedModule());
+			} else {
+				Path artifact = Iterables.getOnlyElement(node.getNodeInfo().getFiles());
+				String name = MoreFiles.getNameWithoutExtension(artifact);
 				return remapName(JkVersionedModule.ofUnspecifiedVerion(JkModuleId.of("net.fabricmc.synthetic", name)));
-			}));
-		}
+			}
+		}));
 
 		return JkComputedDependency.of(() -> {
 			for (Entry<Path, Path> entry : versions.entrySet()) {
