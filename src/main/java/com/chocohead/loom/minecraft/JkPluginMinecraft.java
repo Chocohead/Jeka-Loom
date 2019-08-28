@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Function;
@@ -16,6 +16,7 @@ import com.google.gson.Gson;
 
 import dev.jeka.core.api.depmanagement.JkComputedDependency;
 import dev.jeka.core.api.depmanagement.JkDependency;
+import dev.jeka.core.api.depmanagement.JkDependencyNode;
 import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
 import dev.jeka.core.api.depmanagement.JkModuleDependency;
 import dev.jeka.core.api.depmanagement.JkModuleId;
@@ -140,8 +141,21 @@ public class JkPluginMinecraft extends JkPlugin {
 	public JkDependency modCompile(FullDependency dependency) {
 		Map<Path, Path> versions;
 		if (dependency.isModule()) {
-			versions = Collections.singletonMap(Iterables.getOnlyElement(dependency.resolveToPaths()),
-					remapName(dependency.getModuleID().withVersion(dependency.getResolvedVersion())));
+			versions = new HashMap<>();
+
+			for (JkDependencyNode node : dependency.resolve().getDependencyTree().toFlattenList()) {
+				Path artifact = Iterables.getOnlyElement(node.getNodeInfo().getFiles());
+
+				Path remap;
+				if (node.isModuleNode()) {
+					remap = remapName(node.getModuleInfo().getResolvedVersionedModule());
+				} else {
+					String name = MoreFiles.getNameWithoutExtension(artifact);
+					remap = remapName(JkVersionedModule.ofUnspecifiedVerion(JkModuleId.of("net.fabricmc.synthetic", name)));
+				}
+
+				versions.put(artifact, remap);
+			}
 		} else {
 			versions = dependency.resolveToPaths().stream().collect(Collectors.toMap(Function.identity(), origin -> {
 				String name = MoreFiles.getNameWithoutExtension(origin);
