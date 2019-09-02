@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -141,7 +140,7 @@ public class JkPluginMinecraft extends JkPlugin {
 		return cache;
 	}
 
-	public JkDependency modCompile(FullDependency dependency) {
+	public Collection<JkDependency> modCompile(FullDependency dependency) {
 		Map<Path, Path> versions = dependency.resolve().getDependencyTree().toFlattenList().stream().<Collection<JkDependencyNode>>map(node -> {
 			switch (node.getNodeInfo().getFiles().size()) {
 			case 0: //Empty dependency apparently?
@@ -168,12 +167,13 @@ public class JkPluginMinecraft extends JkPlugin {
 			}
 		}));
 
-		return JkComputedDependency.of(() -> {
-			for (Entry<Path, Path> entry : versions.entrySet()) {
-				Path jar = entry.getKey();
-				Path output = entry.getValue();
+		return versions.entrySet().stream().collect(Collectors.mapping(entry -> {
+			Path jar = entry.getKey();
+			Path output = entry.getValue();
 
-				if (Files.exists(output)) return; //Nothing to do (probably)
+			return JkComputedDependency.of(() -> {
+				assert Files.exists(jar);
+				assert Files.notExists(output);
 
 				try {
 					TinyRemapper remapper = TinyRemapper.newRemapper()
@@ -195,8 +195,8 @@ public class JkPluginMinecraft extends JkPlugin {
 					FileUtils.deleteAfterCrash(output, e);
 					throw new RuntimeException("Failed to remap jar", e);
 				}
-			}
-		}, versions.values().toArray(new Path[0]));
+			}, output);
+		}, Collectors.toList()));
 	}
 
 	Path remapName(JkVersionedModule module) {
