@@ -1,11 +1,15 @@
 package com.chocohead.loom;
 
 import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
 
 import dev.jeka.core.api.depmanagement.JkDependency;
+import dev.jeka.core.api.depmanagement.JkDependencyNode;
 import dev.jeka.core.api.depmanagement.JkDependencyResolver;
 import dev.jeka.core.api.depmanagement.JkDependencySet;
 import dev.jeka.core.api.depmanagement.JkRepo;
@@ -98,6 +102,24 @@ public class FullDependencies {
 
 	public List<Path> resolveToPaths() {
 		return resolveToSequence().getEntries();
+	}
+
+	public List<JkDependencyNode> toDepthTree() {
+		return resolve().getDependencyTree().toFlattenList();
+	}
+
+	public List<JkDependencyNode> toBreadthTree() {
+		Queue<JkDependencyNode> toDig = new ArrayDeque<>();
+		toDig.addAll(resolve().getDependencyTree().getChildren());
+
+		List<JkDependencyNode> out = new ArrayList<>();
+		while (!toDig.isEmpty()) {
+			JkDependencyNode node = toDig.poll();
+			out.add(node);
+			toDig.addAll(node.getChildren());
+		}
+
+		return out;
 	}
 
 	@Override
