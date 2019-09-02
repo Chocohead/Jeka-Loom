@@ -90,7 +90,7 @@ public class MinecraftResolver {
 	protected FullDependencies resolveLibraries() {
 		List<JkScopedDependency> dependencies = new ArrayList<>();
 		OperatingSystem os = OperatingSystem.get();
-		JkScopeMapping normalMapping = JkScopeMapping.of(JkJavaDepScopes.PROVIDED).to("default(*)");
+		JkScopeMapping normalMapping = JkScopeMapping.of(JkJavaDepScopes.PROVIDED, JkJavaDepScopes.RUNTIME).to("default(*)");
 		JkScopeMapping nativeMapping = JkScopeMapping.of(JkJavaDepScopes.RUNTIME).to("default(*)");
 
 		for (Library library : version.libraries) {
