@@ -2,7 +2,6 @@ package com.chocohead.loom;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -63,19 +62,22 @@ class ResolutionTest {
 	}
 
 	@Test
-	void testNormalBroken() {
+	void testNormalCombined() {
 		JkModuleDependency dependency = JkModuleDependency.of("org.lwjgl:lwjgl:3.2.2");
-		JkScopeMapping mapping = JkScopeMapping.ALL_TO_DEFAULT;
+		JkScopeMapping mapping = JkScopeMapping.of(JkJavaDepScopes.PROVIDED, JkJavaDepScopes.RUNTIME).to("default(*)");
 		JkScopedDependency scoped = JkScopedDependency.of(dependency, JkJavaDepScopes.PROVIDED).withScopeMapping(mapping);
 
 		assertFalse(scoped.isInvolvedIn(JkJavaDepScopes.COMPILE));
-		assertFalse/*True*/(scoped.isInvolvedInAnyOf(JkJavaDepScopes.SCOPES_FOR_COMPILATION)); //Misleadingly broken
-		assertFalse(scoped.isInvolvedIn(JkJavaDepScopes.RUNTIME));
+		assertTrue(scoped.isInvolvedInAnyOf(JkJavaDepScopes.SCOPES_FOR_COMPILATION));
+		assertTrue(scoped.isInvolvedIn(JkJavaDepScopes.RUNTIME));
 
-		assertThrows(RuntimeException.class, () -> {
-			//Crashes from making an Ivy cache file for the * scope (which comes from ALL_TO_DEFAULT) => Jeka#132
-			makeResolver().resolve(JkDependencySet.of(Collections.singleton(scoped)), JkJavaDepScopes.SCOPES_FOR_COMPILATION);
-		}, "Managed to resolve all scopes?");
+		JkResolveResult result = assertDoesNotThrow(() -> {
+			return makeResolver().resolve(JkDependencySet.of(Collections.singleton(scoped)), JkJavaDepScopes.SCOPES_FOR_COMPILATION).assertNoError();
+		}, "Completely failed to resolve");
+
+		assertTrue(result.getFiles().getEntries().size() == 1, "Resolved to multiple artifacts! " + result.getFiles().getEntries());
+
+		JkLog.info("Normal combined resolved to " + result.getFiles().getEntries());
 	}
 
 	private static String nativeName() {
@@ -145,6 +147,6 @@ class ResolutionTest {
 		result = assertDoesNotThrow(() -> {
 			return makeResolver().resolve(JkDependencySet.of(Arrays.asList(normalScoped, nativeScoped)), JkJavaDepScopes.COMPILE).assertNoError();
 		}, "Completely failed to resolve");
-		JkLog.info("Compile both resolved to " + result.getFiles().getEntries()); //Should resolve to neither but instead resolves to both => Jeka#131
+		assertTrue(result.getFiles().getEntries().isEmpty(), "Resolved artifacts out of requested scope! " + result.getFiles().getEntries());
 	}
 }
