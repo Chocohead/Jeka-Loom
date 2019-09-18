@@ -2,27 +2,15 @@ package com.chocohead.loom.minecraft;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.List;
 
-import com.google.common.collect.Iterables;
-import com.google.common.io.MoreFiles;
 import com.google.gson.Gson;
 
-import dev.jeka.core.api.depmanagement.JkComputedDependency;
-import dev.jeka.core.api.depmanagement.JkDependency;
-import dev.jeka.core.api.depmanagement.JkDependencyNode;
-import dev.jeka.core.api.depmanagement.JkFileSystemDependency;
 import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
 import dev.jeka.core.api.depmanagement.JkModuleDependency;
 import dev.jeka.core.api.depmanagement.JkModuleId;
 import dev.jeka.core.api.depmanagement.JkRepo;
-import dev.jeka.core.api.depmanagement.JkScope;
 import dev.jeka.core.api.depmanagement.JkVersionedModule;
 import dev.jeka.core.api.system.JkException;
 import dev.jeka.core.api.system.JkLog;
@@ -32,13 +20,9 @@ import dev.jeka.core.tool.JkDoc;
 import dev.jeka.core.tool.JkDocPluginDeps;
 import dev.jeka.core.tool.JkPlugin;
 
-import net.fabricmc.tinyremapper.OutputConsumerPath;
-import net.fabricmc.tinyremapper.TinyRemapper;
-
 import com.chocohead.loom.FullDependency;
 import com.chocohead.loom.JkPluginLoom;
 import com.chocohead.loom.minecraft.MinecraftVersions.Version;
-import com.chocohead.loom.util.FileUtils;
 
 @JkDoc("Adds Minecraft support to Loom")
 @JkDocPluginDeps(JkPluginLoom.class)
@@ -140,73 +124,17 @@ public class JkPluginMinecraft extends JkPlugin {
 		return cache;
 	}
 
-	public Collection<JkDependency> modCompile(FullDependency dependency) {
-		Map<Path, Path> versions = dependency.resolve().getDependencyTree().toFlattenList().stream().<Collection<JkDependencyNode>>map(node -> {
-			switch (node.getNodeInfo().getFiles().size()) {
-			case 0: //Empty dependency apparently?
-				assert false: node;
-			return Collections.emptyList();
+	public RemappedSystem remapper() {
+		List<Path> libraries = resolver.getLibraries().withScopes(JkJavaDepScopes.SCOPES_FOR_COMPILATION).resolveToPaths();
 
-			case 1:
-				return Collections.singleton(node);
+		Path[] classpath = new Path[libraries.size() + 1];
+		libraries.toArray(classpath);
+		classpath[libraries.size()] = resolver.getIntermediary();
 
-			default:
-				assert !node.isModuleNode();
-				Set<JkScope> scope = node.getNodeInfo().getDeclaredScopes();
-				return node.getNodeInfo().getFiles().stream().map(JkFileSystemDependency::of).collect(Collectors.mapping(dep -> JkDependencyNode.ofFileDep(dep, scope), Collectors.toList()));
-			}
-		}).flatMap(Collection::stream).collect(Collectors.toMap(node -> {
-			return Iterables.getOnlyElement(node.getNodeInfo().getFiles());
-		}, node -> {
-			if (node.isModuleNode()) {
-				return remapName(node.getModuleInfo().getResolvedVersionedModule());
-			} else {
-				Path artifact = Iterables.getOnlyElement(node.getNodeInfo().getFiles());
-				String name = MoreFiles.getNameWithoutExtension(artifact);
-				return remapName(JkVersionedModule.ofUnspecifiedVerion(JkModuleId.of("net.fabricmc.synthetic", name)));
-			}
-		}));
-
-		return versions.entrySet().stream().collect(Collectors.mapping(entry -> {
-			Path jar = entry.getKey();
-			Path output = entry.getValue();
-
-			return JkComputedDependency.of(() -> {
-				assert Files.exists(jar);
-				assert Files.notExists(output);
-
-				try {
-					TinyRemapper remapper = TinyRemapper.newRemapper()
-							.withMappings(mappings.getNamed().create("intermediary", "named"))
-							.renameInvalidLocals(true)
-							.build();
-
-					try (OutputConsumerPath outputConsumer = new OutputConsumerPath(output)) {
-						outputConsumer.addNonClassFiles(jar);
-						remapper.readClassPath(resolver.getLibraries().withScopes(JkJavaDepScopes.SCOPES_FOR_COMPILATION).resolveToPaths().toArray(new Path[0]));
-						remapper.readClassPath(resolver.getIntermediary());
-						remapper.readInputs(jar);
-
-						remapper.apply(outputConsumer);
-					}
-
-					remapper.finish();
-				} catch (IOException e) {
-					FileUtils.deleteAfterCrash(output, e);
-					throw new RuntimeException("Failed to remap jar", e);
-				}
-			}, output);
-		}, Collectors.toList()));
-	}
-
-	Path remapName(JkVersionedModule module) {
-		StringBuilder path = new StringBuilder(module.getModuleId().getDotedName());
-
-		if (!module.getVersion().isUnspecified()) {
-			path.append('-');
-			path.append(module.getVersion().getValue());
+		try {
+			return new RemappedSystem(remapCache(), classpath).withMappings(mappings.getNamed(), "intermediary", "named");
+		} catch (IOException e) {
+			throw new UncheckedIOException("Error getting Intermediary -> Named mappings", e);
 		}
-
-		return remapCache().resolve(path.append(".jar").toString());
 	}
 }
