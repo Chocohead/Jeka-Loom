@@ -6,7 +6,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.Iterables;
@@ -107,6 +109,7 @@ public final class RemappedSystem {
 		project.getMaker().addDownloadRepo(JkRepo.ofMaven(repoRoot));
 
 		JkDependencyResolver resolver = JkDependencyResolver.of(repos).withModuleHolder(JkVersionedModule.ofUnspecifiedVerion(JkModuleId.of("com.chocohead.loom.remapped", repoRoot.getFileName().toString())));
+		Set<Path> remappedJars = new HashSet<>();
 		List<Path> sourcesToRemap = new ArrayList<>();
 
 		for (JkScope scope : dependencies.getDeclaredScopes()) {
@@ -130,20 +133,28 @@ public final class RemappedSystem {
 				Path artifact = Iterables.getOnlyElement(node.getNodeInfo().getFiles());
 				assert Files.exists(artifact);
 
-				Path remap;
+				Path remap, source;
 				if (node.isModuleNode()) {
-					remap = remapName(node.getModuleInfo().getResolvedVersionedModule());
+					JkVersionedModule module = node.getModuleInfo().getResolvedVersionedModule();
+
+					remap = remapName(module);
+					source = repos.get(JkModuleDependency.of(module).withClassifier("sources"));
 				} else {
 					String name = MoreFiles.getNameWithoutExtension(artifact);
-					remap = remapName(JkVersionedModule.ofUnspecifiedVerion(JkModuleId.of("net.fabricmc.synthetic", name)));
+					assert "jar".equals(MoreFiles.getFileExtension(artifact));
+
+					remap = remapName(JkVersionedModule.ofUnspecifiedVerion(JkModuleId.of("synthetic", name)));
+					source = artifact.resolveSibling(name + "-sources.jar");
 				}
 
 				if (Files.notExists(remap)) {
 					try {
+						MoreFiles.createParentDirectories(remap);
 						TinyRemapper remapper = TinyRemapper.newRemapper().withMappings(mappings).renameInvalidLocals(true).build();
 
 						try (OutputConsumerPath outputConsumer = new OutputConsumerPath(remap)) {
 							outputConsumer.addNonClassFiles(artifact);
+							remapper.readClassPath(remappedJars.toArray(new Path[0]));
 							remapper.readClassPath(classpath);
 							remapper.readInputs(artifact);
 
@@ -157,6 +168,11 @@ public final class RemappedSystem {
 					}
 				}
 				assert Files.exists(remap);
+				remappedJars.add(remap);
+
+				if (source != null && Files.exists(source)) {
+					sourcesToRemap.add(source);
+				}
 
 				return remap;
 			}, Collectors.toList()));
@@ -164,8 +180,14 @@ public final class RemappedSystem {
 	}
 
 	Path remapName(JkVersionedModule module) {
-		StringBuilder path = new StringBuilder(module.getModuleId().getDotedName());
+		StringBuilder path = new StringBuilder("net.fabricmc.remapped.");
 
+		path.append(module.getModuleId().getGroup());
+		path.append('/');
+		path.append(module.getModuleId().getName());
+
+		path.append('/');
+		path.append(module.getModuleId().getName());
 		if (!module.getVersion().isUnspecified()) {
 			path.append('-');
 			path.append(module.getVersion().getValue());
