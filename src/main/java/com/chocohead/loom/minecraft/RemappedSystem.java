@@ -136,13 +136,24 @@ public final class RemappedSystem {
 				if (node.isModuleNode()) {
 					JkVersionedModule module = node.getModuleInfo().getResolvedVersionedModule();
 
-					remap = remapName(module);
+					StringBuilder path = new StringBuilder("net.fabricmc.remapped.");
+					path.append(module.getModuleId().getGroup());
+					path.append('/');
+					path.append(module.getModuleId().getName());
+
+					path.append('/');
+					path.append(module.getModuleId().getName());
+					assert !module.getVersion().isUnspecified();
+					path.append('-');
+					path.append(module.getVersion().getValue());
+
+					remap = repoRoot.resolve(path.append(".jar").toString());
 					source = repos.get(JkModuleDependency.of(module).withClassifier("sources"));
 				} else {
 					String name = MoreFiles.getNameWithoutExtension(artifact);
 					assert "jar".equals(MoreFiles.getFileExtension(artifact));
 
-					remap = remapName(JkVersionedModule.ofUnspecifiedVerion(JkModuleId.of("synthetic", name)));
+					remap = repoRoot.resolve("net.fabricmc.synthetic/" + name + ".jar");
 					source = artifact.resolveSibling(name + "-sources.jar");
 				}
 
@@ -174,22 +185,5 @@ public final class RemappedSystem {
 				return remap;
 			}, Collectors.toList()));
 		}
-	}
-
-	Path remapName(JkVersionedModule module) {
-		StringBuilder path = new StringBuilder("net.fabricmc.remapped.");
-
-		path.append(module.getModuleId().getGroup());
-		path.append('/');
-		path.append(module.getModuleId().getName());
-
-		path.append('/');
-		path.append(module.getModuleId().getName());
-		if (!module.getVersion().isUnspecified()) {
-			path.append('-');
-			path.append(module.getVersion().getValue());
-		}
-
-		return repoRoot.resolve(path.append(".jar").toString());
 	}
 }
