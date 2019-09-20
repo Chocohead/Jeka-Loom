@@ -3,13 +3,13 @@ package com.chocohead.loom.minecraft;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.google.common.collect.Iterables;
 import com.google.common.io.MoreFiles;
@@ -109,27 +109,26 @@ public final class RemappedSystem {
 		project.getMaker().addDownloadRepo(JkRepo.ofMaven(repoRoot));
 
 		JkDependencyResolver resolver = JkDependencyResolver.of(repos).withModuleHolder(JkVersionedModule.ofUnspecifiedVerion(JkModuleId.of("com.chocohead.loom.remapped", repoRoot.getFileName().toString())));
-		Set<Path> remappedJars = new HashSet<>();
-		List<Path> sourcesToRemap = new ArrayList<>();
+		Map<Path, Path> remappedToSource = new HashMap<>();
 
 		for (JkScope scope : dependencies.getDeclaredScopes()) {
 			JkResolveResult result = resolver.resolve(dependencies, scope).assertNoError();
 
-			result.getDependencyTree().toFlattenList().stream().<Collection<JkDependencyNode>>map(node -> {
+			result.getDependencyTree().toFlattenList().stream().<Stream<JkDependencyNode>>map(node -> {
 				switch (node.getNodeInfo().getFiles().size()) {
 				case 0: //Empty dependency apparently?
 					assert false: node;
-				return Collections.emptyList();
+				return Stream.empty();
 
 				case 1:
-					return Collections.singleton(node);
+					return Stream.of(node);
 
 				default:
 					assert !node.isModuleNode();
 					assert node.getNodeInfo().getDeclaredScopes().contains(scope);
-					return node.getNodeInfo().getFiles().stream().map(JkFileSystemDependency::of).collect(Collectors.mapping(dep -> JkDependencyNode.ofFileDep(dep, Collections.singleton(scope)), Collectors.toList()));
+					return node.getNodeInfo().getFiles().stream().map(JkFileSystemDependency::of).map(dep -> JkDependencyNode.ofFileDep(dep, Collections.singleton(scope)));
 				}
-			}).flatMap(Collection::stream).collect(Collectors.mapping(node -> {
+			}).flatMap(Function.identity()).collect(Collectors.mapping(node -> {
 				Path artifact = Iterables.getOnlyElement(node.getNodeInfo().getFiles());
 				assert Files.exists(artifact);
 
@@ -154,7 +153,7 @@ public final class RemappedSystem {
 
 						try (OutputConsumerPath outputConsumer = new OutputConsumerPath(remap)) {
 							outputConsumer.addNonClassFiles(artifact);
-							remapper.readClassPath(remappedJars.toArray(new Path[0]));
+							remapper.readClassPath(remappedToSource.keySet().toArray(new Path[0]));
 							remapper.readClassPath(classpath);
 							remapper.readInputs(artifact);
 
@@ -168,11 +167,9 @@ public final class RemappedSystem {
 					}
 				}
 				assert Files.exists(remap);
-				remappedJars.add(remap);
 
-				if (source != null && Files.exists(source)) {
-					sourcesToRemap.add(source);
-				}
+				assert !remappedToSource.containsKey(remap) || Objects.equals(remappedToSource.get(remap), source);
+				remappedToSource.put(remap, source);
 
 				return remap;
 			}, Collectors.toList()));
