@@ -60,26 +60,31 @@ public class EnigmaReader {
 				case "CLASS":
 					if (parts.length < 2 || parts.length > 3) throw new IOException("Invalid enigma line (missing/extra columns): " + line);
 					String obfName = parts[1];
-					if (indent >= 1 && obfName.contains("/")) {//Some inner classes carry the named outer class, others the obf'd outer class
-						int split = obfName.lastIndexOf('$');
-						assert split > 2; //Should be at least a/b$c
-						String context = contextStack.peek();
-						if (context == null || context.charAt(0) != 'C') throw new IOException("Invalid enigma line (named inner class without outer class name): " + line);
-						obfName = context.substring(1) + '$' + obfName.substring(split + 1);
+					if (indent >= 1) {//Inner classes have certain inconsistencies...
+						//System.out.println("Passed inner class: " + obfName + " (" + obfName.indexOf('/') + ", " + obfName.indexOf('$') + ')');
+						if (obfName.indexOf('/') > 0) {//Some inner classes carry the named outer class, others the obf'd outer class
+							int split = obfName.lastIndexOf('$');
+							assert split > 2; //Should be at least a/b$c
+							String context = contextStack.peek();
+							if (context == null || context.charAt(0) != 'C') throw new IOException("Invalid enigma line (named inner class without outer class name): " + line);
+							obfName = context.substring(1) + '$' + obfName.substring(split + 1);
+						} else if (obfName.indexOf('$') < 1) {//Some inner classes don't carry any outer name at all
+							assert obfName.indexOf('$') == -1 && obfName.indexOf('/') == -1;
+							String context = contextStack.peek();
+							if (context == null || context.charAt(0) != 'C') throw new IOException("Invalid enigma line (named inner class without outer class name): " + line);
+							obfName = context.substring(1) + '$' + obfName;
+						}
 					}
 					contextStack.add('C' + obfName);
 					indent++;
 					if (parts.length == 3) {
 						String className;
 						if (indent > 1) {//If we're an indent in, we're an inner class so want the outer classes's name
-							StringBuilder classNameBits = new StringBuilder(parts[2]);
 							String context = contextNamedStack.peek();
 							if (context == null || context.charAt(0) != 'C') throw new IOException("Invalid enigma line (named inner class without outer class name): " + line);
 							//Named inner classes shouldn't ever carry the outer class's package + name
 							assert !parts[2].startsWith(context.substring(1)): "Pre-prefixed enigma class name: " + parts[2];
-							classNameBits.insert(0, '$');
-							classNameBits.insert(0, context.substring(1));
-							className = classNameBits.toString();
+							className = context.substring(1) + '$' + parts[2];
 						} else {
 							className = parts[2];
 						}
