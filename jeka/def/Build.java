@@ -1,13 +1,28 @@
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Collections;
+
+import proguard.ClassPath;
+import proguard.ClassPathEntry;
+import proguard.Configuration;
+import proguard.ParseException;
+import proguard.ProGuard;
+
+import dev.jeka.core.api.depmanagement.JkArtifactId;
 import dev.jeka.core.api.depmanagement.JkDependencySet;
 import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
 import dev.jeka.core.api.depmanagement.JkRepoSet;
 import dev.jeka.core.api.java.project.JkJavaProject;
 import dev.jeka.core.api.java.project.JkJavaProjectMaker;
 import dev.jeka.core.api.system.JkLocator;
+import dev.jeka.core.api.system.JkLog;
+import dev.jeka.core.api.utils.JkUtilsJdk;
 import dev.jeka.core.tool.JkCommands;
+import dev.jeka.core.tool.JkImport;
 import dev.jeka.core.tool.JkInit;
 import dev.jeka.core.tool.builtins.java.JkPluginJava;
 
+@JkImport("net.sf.proguard:proguard-base:6.2.0")
 class Build extends JkCommands {
 	private final JkPluginJava javaPlugin = getPlugin(JkPluginJava.class);
 
@@ -29,5 +44,63 @@ class Build extends JkCommands {
 
 		JkJavaProjectMaker maker = project.getMaker();
 		maker.setDependencyResolver(maker.getDependencyResolver().andRepos(JkRepoSet.of("https://maven.fabricmc.net", "https://jitpack.io/")));
+
+		maker.defineMainArtifactAsFatJar(true);
+		JkArtifactId shrunkId = JkArtifactId.of("shrunk", "jar");
+		maker.putArtifact(shrunkId, () -> {
+			maker.makeMainArtifact();
+
+			Path in = maker.getMainArtifactPath();
+			Path out = maker.getArtifactPath(shrunkId);
+			Configuration config = new Configuration();
+
+			try (ConfigParser parser = new ConfigParser(Build.class.getResourceAsStream("/build.pro"), System.getProperties())) {
+				parser.parse(config);
+			} catch (IOException | ParseException e) {
+				throw new RuntimeException("Error parsing config", e);
+			}
+
+			assert config.programJars == null;
+			config.programJars = new ClassPath();
+			assert config.libraryJars == null;
+			config.libraryJars = new ClassPath();
+
+			config.programJars.add(new ClassPathEntry(in.toFile(), false));
+			config.programJars.add(new ClassPathEntry(out.toFile(), true));
+
+			if (JkUtilsJdk.runningMajorVersion() >= 9) {
+				ClassPathEntry entry = new ClassPathEntry(JkUtilsJdk.javaHome().resolve("jmods").resolve("java.base.jmod").toFile(), false);
+				entry.setFilter(Collections.singletonList("!module-info.class"));
+				entry.setJarFilter(Collections.singletonList("!**.jar"));
+				config.libraryJars.add(entry);
+			} else {
+				config.libraryJars.add(new ClassPathEntry(JkUtilsJdk.javaHome().resolve("lib").toFile(), false));
+			}
+
+			for (Path library : maker.getDependencyResolver().resolve(JkDependencySet.of()
+					.andFile(JkLocator.getJekaJarPath(), JkJavaDepScopes.PROVIDED)
+					.and("net.fabricmc:sponge-mixin:0.7.12.39", JkJavaDepScopes.PROVIDED)
+					.and("cuchaz:enigma:0.14.2.143", JkJavaDepScopes.PROVIDED),
+					JkJavaDepScopes.PROVIDED).assertNoError().getFiles()) {
+				config.libraryJars.add(new ClassPathEntry(library.toFile(), false));
+			}
+
+			Thread t = new Thread(() -> {
+				try {
+					new ProGuard(config).execute();
+				} catch (IOException e) {
+					throw new RuntimeException("Error running ProGuard", e);
+				}
+			});
+			JkLog.startTask("Shrinking output jar");
+			try {
+				t.start();
+				t.join();
+			} catch (InterruptedException e) {
+				throw new RuntimeException("Unexpectedly bailed out of thread", e);
+			} finally {
+				JkLog.endTask();
+			}
+		});
 	}
 }
