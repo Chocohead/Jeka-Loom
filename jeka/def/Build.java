@@ -19,6 +19,7 @@ import dev.jeka.core.api.system.JkLocator;
 import dev.jeka.core.api.system.JkLog;
 import dev.jeka.core.api.utils.JkUtilsJdk;
 import dev.jeka.core.tool.JkCommands;
+import dev.jeka.core.tool.JkDoc;
 import dev.jeka.core.tool.JkImport;
 import dev.jeka.core.tool.JkImportRepo;
 import dev.jeka.core.tool.JkInit;
@@ -148,5 +149,16 @@ class Build extends JkCommands {
 
 			remapper.finish();
 		});
+	}
+
+	@JkDoc("Produces the main build arifact, with all necessary parent artifacts")
+	public void build() {
+		javaPlugin.clean().getProject().getMaker().makeMainArtifact();
+	}
+
+	@JkDoc("Produces all build artifacts that would come from clean java#pack")
+	public void buildAll() {
+		JkJavaProjectMaker maker = javaPlugin.clean().getProject().getMaker();
+		maker.makeMissingArtifacts(JkArtifactId.of("original", "jar"), maker.getMainArtifactId());
 	}
 }
