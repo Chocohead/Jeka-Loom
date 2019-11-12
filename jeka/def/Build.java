@@ -12,6 +12,7 @@ import dev.jeka.core.api.depmanagement.JkArtifactId;
 import dev.jeka.core.api.depmanagement.JkDependencySet;
 import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
 import dev.jeka.core.api.depmanagement.JkRepoSet;
+import dev.jeka.core.api.file.JkPathTree;
 import dev.jeka.core.api.java.project.JkJavaProject;
 import dev.jeka.core.api.java.project.JkJavaProjectMaker;
 import dev.jeka.core.api.system.JkLocator;
@@ -19,10 +20,16 @@ import dev.jeka.core.api.system.JkLog;
 import dev.jeka.core.api.utils.JkUtilsJdk;
 import dev.jeka.core.tool.JkCommands;
 import dev.jeka.core.tool.JkImport;
+import dev.jeka.core.tool.JkImportRepo;
 import dev.jeka.core.tool.JkInit;
 import dev.jeka.core.tool.builtins.java.JkPluginJava;
 
+import net.fabricmc.tinyremapper.OutputConsumerPath;
+import net.fabricmc.tinyremapper.TinyRemapper;
+
 @JkImport("net.sf.proguard:proguard-base:6.2.0")
+@JkImport("com.github.Chocohead:tiny-remapper:c13c04c")
+@JkImportRepo("https://jitpack.io/")
 class Build extends JkCommands {
 	private final JkPluginJava javaPlugin = getPlugin(JkPluginJava.class);
 
@@ -45,13 +52,22 @@ class Build extends JkCommands {
 		JkJavaProjectMaker maker = project.getMaker();
 		maker.setDependencyResolver(maker.getDependencyResolver().andRepos(JkRepoSet.of("https://maven.fabricmc.net", "https://jitpack.io/")));
 
-		maker.defineMainArtifactAsFatJar(true);
-		JkArtifactId shrunkId = JkArtifactId.of("shrunk", "jar");
-		maker.putArtifact(shrunkId, () -> {
-			maker.makeMainArtifact();
+		JkArtifactId originalID = JkArtifactId.of("original", "jar");
+		maker.putArtifact(originalID, () -> maker.getTasksForPackaging().createBinJar(maker.getArtifactPath(originalID)));
 
-			Path in = maker.getMainArtifactPath();
-			Path out = maker.getArtifactPath(shrunkId);
+		JkArtifactId fatID = JkArtifactId.of("fat", "jar");
+		maker.putArtifact(fatID, () -> {
+			Path jar = maker.getArtifactPath(fatID);
+			maker.getTasksForPackaging().createFatJar(jar);
+			JkPathTree.ofZip(jar).andMatching(true, "META-INF/**").deleteContent().close();
+		});
+
+		JkArtifactId shrunkID = JkArtifactId.of("thin", "jar");
+		maker.putArtifact(shrunkID, () -> {
+			maker.makeMissingArtifacts(fatID);
+
+			Path in = maker.getArtifactPath(fatID);
+			Path out = maker.getArtifactPath(shrunkID);
 			Configuration config = new Configuration();
 
 			try (ConfigParser parser = new ConfigParser(Build.class.getResourceAsStream("/build.pro"), System.getProperties())) {
@@ -101,6 +117,36 @@ class Build extends JkCommands {
 			} finally {
 				JkLog.endTask();
 			}
+		});
+
+		JkArtifactId mainID = maker.getMainArtifactId();
+		maker.putArtifact(mainID, () -> {
+			maker.makeMissingArtifacts(shrunkID);
+
+			Path in = maker.getArtifactPath(shrunkID);
+			Path out = maker.getMainArtifactPath();
+
+			TinyRemapper remapper = TinyRemapper.newRemapper().withMappings((classes, fields, methods) -> {
+				for (Path path : JkPathTree.ofZip(in).andMatching(false, "com/chocohead/**").andMatching("**.class").getRelativeFiles()) {
+					StringBuilder name = new StringBuilder(path.toString());
+
+					assert name.length() >= 7: "Path name too short: " + path;
+					name.setLength(name.length() - 6);
+
+					classes.put(name.toString(), name.insert(0, "com/chocohead/loom/repackaged/").toString());
+				}
+			})/*.rebuildSourceFilenames(true)*/.build(); //Rebuilding source names causes trouble with GSON's $ prefixed class names
+
+			try (OutputConsumerPath outputConsumer = new OutputConsumerPath(out)) {
+				outputConsumer.addNonClassFiles(in);
+				remapper.readInputs(in);
+
+				remapper.apply(outputConsumer);
+			} catch (IOException e) {
+				throw new RuntimeException("Failed to repackage thin jar", e);
+			}
+
+			remapper.finish();
 		});
 	}
 }
