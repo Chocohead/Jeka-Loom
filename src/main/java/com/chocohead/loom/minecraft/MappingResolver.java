@@ -460,7 +460,7 @@ public class MappingResolver {
 
 			return JkComputedDependency.of(() -> {
 				try {
-					new CommandMergeTiny().run(new String[] {makeInters().toString(), makeNormal().toString(), merged.toString(), "-c", "intermediary"});
+					CommandMergeTiny.run(makeInters(), makeNormal(), merged, "intermediary", false);
 				} catch (Exception e) {
 					throw new RuntimeException("Error merging mappings", e);
 				}

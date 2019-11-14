@@ -45,8 +45,8 @@ class Build extends JkCommands {
 				.andFile(JkLocator.getJekaJarPath(), JkJavaDepScopes.PROVIDED)
 				.and("com.google.guava:guava:28.0-jre", JkJavaDepScopes.SCOPES_FOR_COMPILATION)
 				.and("com.google.code.gson:gson:2.8.5", JkJavaDepScopes.SCOPES_FOR_COMPILATION)
-				.and("com.github.Chocohead:Stitch:529051f", JkJavaDepScopes.SCOPES_FOR_COMPILATION)
-				.and("com.github.Chocohead:tiny-remapper:c13c04c", JkJavaDepScopes.SCOPES_FOR_COMPILATION)
+				.and("com.github.Chocohead:Stitch:390f5f6", JkJavaDepScopes.SCOPES_FOR_COMPILATION)
+				.and("com.github.Chocohead:tiny-remapper:2be4d64", JkJavaDepScopes.SCOPES_FOR_COMPILATION)
 				.and("org.junit.jupiter:junit-jupiter:5.5.1", JkJavaDepScopes.TEST)
 				.and("org.junit.platform:junit-platform-launcher:1.5.1", JkJavaDepScopes.TEST));
 
