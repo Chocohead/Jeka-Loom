@@ -1,6 +1,5 @@
 package com.chocohead.loom.minecraft;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -15,7 +14,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
@@ -46,7 +44,7 @@ import net.fabricmc.tinyremapper.IMappingProvider;
 import net.fabricmc.tinyremapper.MemberInstance;
 
 import com.chocohead.loom.FullDependency;
-import com.chocohead.loom.util.EnigmaReader;
+import com.chocohead.loom.util.MappingReaders;
 import com.chocohead.loom.util.TinyParamWriter;
 import com.chocohead.loom.util.TinyWriter;
 
@@ -371,7 +369,7 @@ public class MappingResolver {
 					Files.deleteIfExists(params);
 
 					try (TinyWriter processor = new TinyParamWriter(base, params, "intermediary", "named")) {
-						EnigmaReader.readFrom(mappings, processor);
+						MappingReaders.readEnigmaFrom(mappings, processor);
 					}
 				} catch (IOException e) {
 					throw new UncheckedIOException("Error processing Engima mappings", e);
@@ -416,34 +414,14 @@ public class MappingResolver {
 					usedMappings = mappings;
 				}
 
-				Map<String, String[]> lines = new HashMap<>();
-
-				try (BufferedReader reader = Files.newBufferedReader(makeParams())) {
-					for (String line = reader.readLine(), current = null; line != null; line = reader.readLine()) {
-						if (current == null || line.charAt(0) != '\t') {
-							current = line;
-						} else {
-							int split = line.indexOf(':'); //\tno: name
-							int number = Integer.parseInt(line.substring(1, split));
-							String name = line.substring(split + 2);
-
-							String[] lineSet = lines.get(current);
-							if (lineSet == null) {
-								//The args are written backwards so the biggest index is first
-								lines.put(current, lineSet = new String[number + 1]);
-							}
-							lineSet[number] = name;
-						}
-					}
-				}
-
 				return new IMappingProvider() {
 					private final IMappingProvider normal = makeProvider(usedMappings, from, to);
+					private final Map<String, String[]> locals = MappingReaders.readParamsFrom(makeParams());
 
 					@Override
 					public void load(Map<String, String> classMap, Map<String, String> fieldMap, Map<String, String> methodMap, Map<String, String[]> localMap) {
 						load(classMap, fieldMap, methodMap);
-						localMap.putAll(lines);
+						localMap.putAll(locals);
 					}
 
 					@Override

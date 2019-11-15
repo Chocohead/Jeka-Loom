@@ -12,7 +12,7 @@ import java.util.Collections;
 import java.util.Queue;
 import java.util.stream.Stream;
 
-public class EnigmaReader {
+class EnigmaReader {
 	static final boolean LEGACY = true;
 
 	public static void readFrom(Path dir, MappingProcessor processor) throws IOException {
