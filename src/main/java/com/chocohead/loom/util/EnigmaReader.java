@@ -3,7 +3,6 @@ package com.chocohead.loom.util;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.FileSystems;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,14 +11,13 @@ import java.util.Collections;
 import java.util.Queue;
 import java.util.stream.Stream;
 
+import dev.jeka.core.api.file.JkPathTree;
+
 class EnigmaReader {
 	static final boolean LEGACY = true;
 
 	public static void readFrom(Path dir, MappingProcessor processor) throws IOException {
-		try (Stream<Path> stream = Files.find(FileSystems.newFileSystem(dir, null).getPath("/"),
-				Integer.MAX_VALUE,
-				(path, attr) -> attr.isRegularFile() && path.getFileName().toString().endsWith(".mapping"),
-				FileVisitOption.FOLLOW_LINKS)) {
+		try (Stream<Path> stream = JkPathTree.ofZip(dir).andMatching("**.mapping").stream(FileVisitOption.FOLLOW_LINKS)) {
 			stream.forEach(file -> readEnigmaFile(file, processor));
 		} catch (UncheckedIOException e) {
 			throw e.getCause();
