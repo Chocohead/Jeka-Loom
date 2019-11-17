@@ -8,7 +8,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 
 import com.google.common.io.MoreFiles;
@@ -75,7 +74,7 @@ public class DownloadUtil {
 		long contentLength = connection.getContentLengthLong();
 		if (!quiet && contentLength >= 0) JkLog.info("'" + to + "' Changed, downloading " + toNiceSize(contentLength));
 
-		try (OutputStream out = Files.newOutputStream(to, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW)) {//Try download to the output
+		try (OutputStream out = Files.newOutputStream(to)) {//Try download to the output
 			JkUtilsIO.copy(connection.getInputStream(), out);
 		} catch (IOException e) {
 			FileUtils.deleteAfterCrash(to, e);
