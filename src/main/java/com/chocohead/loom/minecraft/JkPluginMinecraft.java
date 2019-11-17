@@ -5,8 +5,6 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.List;
 
-import com.google.gson.Gson;
-
 import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
 import dev.jeka.core.api.depmanagement.JkModuleDependency;
 import dev.jeka.core.api.depmanagement.JkModuleId;
@@ -30,7 +28,6 @@ public class JkPluginMinecraft extends JkPlugin {
 	private static final String FULL_MANIFEST = "version_manifest.json";
 	private static final String VERSION_MANIFEST = "minecraft-%s-info.json";
 
-	public static final Gson GSON = new Gson();
 	protected final JkPluginLoom loom = getCommands().getPlugin(JkPluginLoom.class);
 
 	@JkDoc("The Minecraft version to use")

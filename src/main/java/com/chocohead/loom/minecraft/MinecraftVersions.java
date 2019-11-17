@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.google.gson.Gson;
+
 import dev.jeka.core.api.system.JkException;
 import dev.jeka.core.api.system.JkLog;
 
@@ -44,11 +46,12 @@ public class MinecraftVersions {
 			}
 
 			try (Reader reader = new InputStreamReader(Files.newInputStream(from), StandardCharsets.UTF_8)) {
-				return JkPluginMinecraft.GSON.fromJson(reader, MinecraftVersion.class);
+				return GSON.fromJson(reader, MinecraftVersion.class);
 			}
 		}
 	}
 
+	static final Gson GSON = new Gson();
 	private List<Version> versions = new ArrayList<>();
 
 	public static MinecraftVersions get(Path from, boolean offline) throws IOException {
@@ -66,7 +69,7 @@ public class MinecraftVersions {
 		}
 
 		try (Reader reader = new InputStreamReader(Files.newInputStream(from), StandardCharsets.UTF_8)) {
-			return JkPluginMinecraft.GSON.fromJson(reader, MinecraftVersions.class);
+			return GSON.fromJson(reader, MinecraftVersions.class);
 		}
 	}
 
