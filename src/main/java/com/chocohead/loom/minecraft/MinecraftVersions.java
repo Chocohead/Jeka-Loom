@@ -1,10 +1,8 @@
 package com.chocohead.loom.minecraft;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -45,7 +43,7 @@ public class MinecraftVersions {
 				DownloadUtil.downloadIfChanged(url, from);
 			}
 
-			try (Reader reader = new InputStreamReader(Files.newInputStream(from), StandardCharsets.UTF_8)) {
+			try (Reader reader = Files.newBufferedReader(from)) {
 				return GSON.fromJson(reader, MinecraftVersion.class);
 			}
 		}
@@ -68,7 +66,7 @@ public class MinecraftVersions {
 			DownloadUtil.downloadIfChanged(new URL("https://launchermeta.mojang.com/mc/game/version_manifest.json"), from);
 		}
 
-		try (Reader reader = new InputStreamReader(Files.newInputStream(from), StandardCharsets.UTF_8)) {
+		try (Reader reader = Files.newBufferedReader(from)) {
 			return GSON.fromJson(reader, MinecraftVersions.class);
 		}
 	}
