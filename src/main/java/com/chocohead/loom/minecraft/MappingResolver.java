@@ -57,27 +57,27 @@ public class MappingResolver {
 	public static abstract class MappingType {
 		public final Path cache;
 		protected final Path mappings;
-		public final JkVersionedModule version;
-		private final boolean hasVersion;
+		public final JkModuleId module;
 		private final String minecraft;
-		private final String mappingVersion, mappingMC;
+		private final boolean hasVersion;
+		private final String version, mappingMC;
 
-		public MappingType(Path cache, Path mappings, JkVersionedModule version, String minecraft) {
+		MappingType(Path cache, Path mappings, JkVersionedModule version, String minecraft) {
 			this.cache = cache;
 			this.mappings = mappings;
-			this.version = version;
+			module = version.getModuleId();
 			this.minecraft = minecraft;
 
 			if (hasVersion = !version.getVersion().isUnspecified()) {
-				String mappingVersion = getFullVersion();
+				String mappingVersion = version.getVersion().getValue();
 
 				if (mappingVersion.contains("+build.")) {
 					mappingMC = mappingVersion.substring(0, mappingVersion.lastIndexOf('+'));
-					this.mappingVersion = mappingVersion.substring(mappingVersion.lastIndexOf('.') + 1);
+					this.version = mappingVersion.substring(mappingVersion.lastIndexOf('.') + 1);
 				} else {
 					int split = mappingVersion.lastIndexOf(mappingVersion.indexOf('-') > 0 ? '-' : '.');
 					mappingMC = mappingVersion.substring(0, split++);
-					this.mappingVersion = mappingVersion.substring(split);
+					this.version = mappingVersion.substring(split);
 				}
 
 				if (minecraft != null && !mappingMC.equals(minecraft)) {
@@ -85,27 +85,39 @@ public class MappingResolver {
 					JkLog.warn("Running with Minecraft " + minecraft + ", but mappings are designed for " + mappingMC);
 				}
 			} else {
-				mappingVersion = mappingMC = null;
+				this.version = mappingMC = null;
+			}
+		}
+
+		protected MappingType(Path cache, Path mappings, String minecraft, JkModuleId mappingModule, String mappingVersion, String mappingMC) {
+			this.cache = cache;
+			this.mappings = mappings;
+			module = mappingModule;
+			this.minecraft = minecraft;
+
+			if (mappingVersion != null && mappingMC != null) {
+				hasVersion = true;
+				this.mappingMC = mappingMC;
+				version = mappingVersion;
+			} else if (mappingVersion == null && mappingMC == null) {
+				hasVersion = false;
+				version = this.mappingMC = null;
+			} else {
+				throw new IllegalArgumentException("Must either set both mapping version and mapping Minecraft version or neither");
 			}
 		}
 
 		public String getName() {
-			return version.getModuleId().getDotedName();
+			return module.getDotedName();
 		}
 
 		public boolean hasVersion() {
-			assert !version.getVersion().isUnspecified();
 			return hasVersion;
-		}
-
-		public String getFullVersion() {
-			assert hasVersion();
-			return version.getVersion().getValue();
 		}
 
 		public String getVersion() {
 			assert hasVersion();
-			return mappingVersion;
+			return version;
 		}
 
 		public String getMC() {
@@ -449,7 +461,7 @@ public class MappingResolver {
 	protected final MappingType type;
 	protected MappingFactory intermediaryMapper, namedMapper;
 
-	public MappingResolver(Path cache, String minecraft, FullDependency yarn, boolean offline) {
+	MappingResolver(Path cache, String minecraft, FullDependency yarn, boolean offline) {
 		JkResolveResult result = yarn.resolve().assertNoError();
 		List<Path> paths = result.getFiles().getEntries();
 
@@ -492,6 +504,14 @@ public class MappingResolver {
 			throw new JkException("Unexpected mappings base type: " + MoreFiles.getNameWithoutExtension(origin) + " (from " + origin + ')');
 		}
 		JkLog.trace("Mappings are of type " + type);
+
+		if (type.isMissingFiles()) {
+			type.populateCache(offline);
+		}
+	}
+
+	public MappingResolver(MappingType mappings, boolean offline) {
+		type = mappings;
 
 		if (type.isMissingFiles()) {
 			type.populateCache(offline);
