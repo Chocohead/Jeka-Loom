@@ -541,7 +541,7 @@ public class MappingResolver {
 		return intermediaryMapper;
 	}
 
-	public void postMerge(Path mergedJar) {
+	protected void postMerge(Path mergedJar) {
 		type.enhanceMappings(mergedJar);
 	}
 

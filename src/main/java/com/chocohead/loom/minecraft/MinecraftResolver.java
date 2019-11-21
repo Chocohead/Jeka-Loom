@@ -132,7 +132,7 @@ public class MinecraftResolver {
 		return mergedJar;
 	}
 
-	public void makeIntermediary(MappingFactory mappings) {
+	protected void makeIntermediary(MappingFactory mappings) {
 		if (split) {
 			Path clientRemapped = cache.resolve(CLIENT_INTER_JAR);
 			remapIfMissing(clientJar, clientRemapped, mappings, "client", "intermediary");
@@ -193,7 +193,7 @@ public class MinecraftResolver {
 		return split ? mergedJar : intermediaryJar;
 	}
 
-	public void makeMapped(String mappingName, MappingFactory mappings) {
+	protected void makeMapped(String mappingName, MappingFactory mappings) {
 		remapIfMissing(getIntermediary(), mappedJar = cache.resolve(String.format(MAPPED_JAR, mappingName)), mappings, "intermediary", "named");
 	}
 
