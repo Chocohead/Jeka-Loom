@@ -232,7 +232,7 @@ public class MappingResolver {
 
 		@Override
 		public String toString() {
-			return getClass().getSimpleName() + '[' + version.toString() + '@' + mappings + ']';
+			return getClass().getSimpleName() + '[' + (version != null ? version.toString() : "local") + '@' + mappings + ']';
 		}
 	}
 
