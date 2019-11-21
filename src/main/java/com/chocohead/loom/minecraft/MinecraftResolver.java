@@ -96,15 +96,16 @@ public class MinecraftResolver {
 		for (Library library : version.libraries) {
 			if (!library.shouldUse()) continue;
 
-			assert library.downloads.artifact != null; //Every library should declare a normal (non-native) artifact
-			JkScopedDependency dependency = JkScopedDependency.of(JkModuleDependency.of(library.name), JkJavaDepScopes.PROVIDED);
-			//Ivy doesn't seem to like LWJGL's xml, so it needs a little help to resolve properly
-			if (library.name.contains("lwjgl")) dependency = dependency.withScopeMapping(normalMapping);
-			dependencies.add(dependency);
+			if (library.downloads.artifact != null) {//Some libraries (like LWJGL-Platform) only have native artifacts
+				JkScopedDependency dependency = JkScopedDependency.of(JkModuleDependency.of(library.name), JkJavaDepScopes.PROVIDED);
+				//Ivy doesn't seem to like LWJGL's xml, so it needs a little help to resolve properly
+				if (library.name.contains("lwjgl")) dependency = dependency.withScopeMapping(normalMapping);
+				dependencies.add(dependency);
+			}
 
 			if (library.hasNativeFor(os)) {
 				assert library.natives.get(os) != null;
-				dependency = JkScopedDependency.of(JkModuleDependency.of(library.name).withClassifier(library.natives.get(os)), JkJavaDepScopes.RUNTIME);
+				JkScopedDependency dependency = JkScopedDependency.of(JkModuleDependency.of(library.name).withClassifier(library.natives.get(os)), JkJavaDepScopes.RUNTIME);
 				//The LWJGL natives also suffer from the same problem
 				if (library.name.contains("lwjgl")) dependency = dependency.withScopeMapping(nativeMapping);
 				dependencies.add(dependency);
