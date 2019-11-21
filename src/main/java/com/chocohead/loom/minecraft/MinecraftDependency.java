@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Supplier;
 
+import dev.jeka.core.api.depmanagement.JkDependency;
 import dev.jeka.core.api.depmanagement.JkDependencySet;
 import dev.jeka.core.api.depmanagement.JkFileSystemDependency;
 import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
@@ -44,8 +45,11 @@ public class MinecraftDependency {
 		}
 
 		public Builder withMappings(String dependency) {
-			JkModuleDependency yarnDependency = JkModuleDependency.of(dependency);
-			return withMappings(FullDependency.of(yarnDependency, JkRepo.of("https://maven.fabricmc.net"), JkJavaDepScopes.COMPILE_AND_RUNTIME));
+			return withMappings(JkModuleDependency.of(dependency));
+		}
+
+		public Builder withMappings(JkDependency dependency) {
+			return withMappings(FullDependency.of(dependency, JkRepo.of("https://maven.fabricmc.net"), JkJavaDepScopes.COMPILE_AND_RUNTIME));
 		}
 
 		public Builder withMappings(FullDependency dependency) {
