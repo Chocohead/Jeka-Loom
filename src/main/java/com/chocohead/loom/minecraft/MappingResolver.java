@@ -182,13 +182,16 @@ public class MappingResolver {
 		protected static final IMappingProvider makeProvider(Mappings mappings, String from, String to) {
 			return (classes, fields, methods) -> {
 				for (ClassEntry entry : mappings.getClassEntries()) {
-					classes.put(entry.get(from), entry.get(to));
+					String fromName = entry.get(from);
+					if (fromName == null) continue;
+					classes.put(fromName, entry.get(to));
 				}
 				assert !classes.containsKey(null);
 				assert !classes.containsValue(null);
 
 				for (FieldEntry entry : mappings.getFieldEntries()) {
 					EntryTriple fromTriple = entry.get(from);
+					if (fromTriple == null) continue;
 					fields.put(fromTriple.getOwner() + '/' + MemberInstance.getFieldId(fromTriple.getName(), fromTriple.getDesc()), entry.get(to).getName());
 				}
 				assert !fields.containsKey(null);
@@ -196,6 +199,7 @@ public class MappingResolver {
 
 				for (MethodEntry entry : mappings.getMethodEntries()) {
 					EntryTriple fromTriple = entry.get(from);
+					if (fromTriple == null) continue;
 					methods.put(fromTriple.getOwner() + '/' + MemberInstance.getMethodId(fromTriple.getName(), fromTriple.getDesc()), entry.get(to).getName());
 				}
 				assert !methods.containsKey(null);
