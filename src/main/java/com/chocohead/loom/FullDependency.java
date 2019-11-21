@@ -35,7 +35,7 @@ public final class FullDependency extends FullDependencies {
 	}
 
 	public static FullDependency of(JkDependency dependency, JkRepoSet repo, JkScope... scopes) {
-		return of(JkScopedDependency.of(dependency), repo, scopes);
+		return of(JkScopedDependency.of(dependency, scopes), repo, scopes);
 	}
 
 	public static FullDependency of(JkDependency dependency, JkRepo repo, JkScope... scopes) {
