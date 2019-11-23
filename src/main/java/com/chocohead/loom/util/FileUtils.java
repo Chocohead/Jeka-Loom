@@ -31,7 +31,7 @@ public class FileUtils {
 				builder.append(Integer.toString((hashBytes & 0xFF) + 0x100, 16).substring(1));
 			}
 
-			return builder.toString().equals(checksum);
+			return checksum.contentEquals(builder);
 		} catch (IOException e) {
 			throw new RuntimeException("Unexpected error calculating file hash", e);
 		}
