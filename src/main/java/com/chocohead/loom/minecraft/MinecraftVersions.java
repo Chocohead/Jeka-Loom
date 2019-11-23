@@ -49,7 +49,7 @@ public class MinecraftVersions {
 		}
 	}
 
-	static final Gson GSON = new Gson();
+	static final transient Gson GSON = new Gson();
 	private List<Version> versions = new ArrayList<>();
 
 	public static MinecraftVersions get(Path from, boolean offline) throws IOException {
