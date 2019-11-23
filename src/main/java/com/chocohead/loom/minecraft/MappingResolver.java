@@ -239,8 +239,12 @@ public class MappingResolver {
 	public static class TinyMappings extends MappingType {
 		private SoftReference<Mappings> interMappings, namedMappings;
 
-		public TinyMappings(Path cache, Path mappings, JkVersionedModule version, String minecraft) {
+		TinyMappings(Path cache, Path mappings, JkVersionedModule version, String minecraft) {
 			super(cache, mappings, version, minecraft);
+		}
+
+		public TinyMappings(Path cache, Path mappings, String minecraft, JkModuleId mappingModule, String mappingVersion, String mappingMC) {
+			super(cache, mappings, minecraft, mappingModule, mappingVersion, mappingMC);
 		}
 
 		@Override
@@ -300,8 +304,12 @@ public class MappingResolver {
 	}
 
 	public static class TinyGzMappings extends TinyMappings {
-		public TinyGzMappings(Path cache, Path mappings, JkVersionedModule version, String minecraft) {
+		TinyGzMappings(Path cache, Path mappings, JkVersionedModule version, String minecraft) {
 			super(cache, mappings, version, minecraft);
+		}
+
+		protected TinyGzMappings(Path cache, Path mappings, String minecraft, JkModuleId mappingModule, String mappingVersion, String mappingMC) {
+			super(cache, mappings, minecraft, mappingModule, mappingVersion, mappingMC);
 		}
 
 		@Override
@@ -338,11 +346,15 @@ public class MappingResolver {
 		}
 	}
 
-	public static class EngimaMappings extends MappingType {
+	public static class EnigmaMappings extends MappingType {
 		private SoftReference<Mappings> interMappings, namedMappings;
 
-		public EngimaMappings(Path cache, Path mappings, JkVersionedModule version, String minecraft) {
+		EnigmaMappings(Path cache, Path mappings, JkVersionedModule version, String minecraft) {
 			super(cache, mappings, version, minecraft);
+		}
+
+		public EnigmaMappings(Path cache, Path mappings, String minecraft, JkModuleId mappingModule, String mappingVersion, String mappingMC) {
+			super(cache, mappings, minecraft, mappingModule, mappingVersion, mappingMC);
 		}
 
 		private final Path makeInters() {
@@ -493,7 +505,7 @@ public class MappingResolver {
 
 		switch (MoreFiles.getFileExtension(origin)) {
 		case "zip":
-			type = new EngimaMappings(cache, origin, version, minecraft);
+			type = new EnigmaMappings(cache, origin, version, minecraft);
 			break;
 
 		case "gz":
