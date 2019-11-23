@@ -21,7 +21,6 @@ import java.util.zip.GZIPInputStream;
 
 import com.google.common.collect.Iterables;
 import com.google.common.io.MoreFiles;
-import com.google.common.net.UrlEscapers;
 
 import dev.jeka.core.api.depmanagement.JkComputedDependency;
 import dev.jeka.core.api.depmanagement.JkDependency;
@@ -384,7 +383,7 @@ public class MappingResolver {
 			if (Files.notExists(inters)) {
 				String minecraft = hasVersion() ? getMappingMC() : getMC();
 
-				try (InputStream in = new URL("https://github.com/FabricMC/intermediary/raw/master/mappings/" + UrlEscapers.urlPathSegmentEscaper().escape(minecraft) + ".tiny").openStream()) {
+				try (InputStream in = new URL(getIntermediaries(minecraft)).openStream()) {
 					Files.copy(in, inters, StandardCopyOption.REPLACE_EXISTING);
 				} catch (IOException e) {
 					throw new UncheckedIOException("Error downloading Intermediaries", e);
@@ -403,6 +402,10 @@ public class MappingResolver {
 					throw new UncheckedIOException("Error processing Engima mappings", e);
 				}
 			}
+		}
+
+		protected String getIntermediaries(String minecraft) {
+			return SpecialCases.intermediaries(minecraft);
 		}
 
 		@Override

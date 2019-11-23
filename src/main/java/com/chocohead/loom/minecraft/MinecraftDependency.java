@@ -144,6 +144,7 @@ public class MinecraftDependency {
 	public MinecraftDependency(MinecraftVersion version, Builder settings) {
 		JkLog.startTask("Preparing Minecraft dependencies");
 		if (version.id == null) throw new IllegalArgumentException("Minecraft version supplied has null id!");
+		SpecialCases.enhanceVersion(version);
 
 		JkLog.startTask("Fetching Minecraft jars");
 		resolver = new MinecraftResolver(settings.cache.resolve(version.id), version, settings.splitMerge, settings.offline);
