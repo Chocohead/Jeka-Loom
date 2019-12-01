@@ -1,5 +1,8 @@
 package com.chocohead.loom;
 
+import java.nio.file.Path;
+import java.util.List;
+
 import dev.jeka.core.api.depmanagement.JkDependency;
 import dev.jeka.core.tool.JkCommands;
 import dev.jeka.core.tool.JkInit;
@@ -15,6 +18,11 @@ public class LaunchTesting extends JkCommands {
 		JkDependency mappings = EnigmaLiveDependency.createForBranch("Blayyke/yarn", "1.2.5");
 		FullDependencies minecraftDep = mcPlugin.standard("1.2.5").withMappings(mappings).splitMerge(true).build().asDependency();
 
-		System.out.println(minecraftDep.resolveToPaths());
+		List<Path> classpath = minecraftDep.resolveToPaths();
+		System.out.println("Classpath resolved to:");
+		for (Path dependency : classpath) {
+			System.out.print('\t');
+			System.out.println(dependency);
+		}
 	}
 }
