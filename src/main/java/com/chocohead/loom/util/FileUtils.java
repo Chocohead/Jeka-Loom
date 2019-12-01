@@ -1,6 +1,7 @@
 package com.chocohead.loom.util;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -49,5 +50,17 @@ public class FileUtils {
 		} catch (IOException e) {
 			t.addSuppressed(e);
 		}
+	}
+
+	/**
+	 * Returns the cause of the passed {@link Exception} is an {@link UncheckedIOException} otherwise returns the same exception
+	 *
+	 * @param e The exception that is potentially an {@link UncheckedIOException}
+	 *
+	 * @return {@link UncheckedIOException#getCause()} or {@code e}
+	 */
+	public static Exception unpackIOException(Exception e) {
+		//Union type between IOException and UncheckedIOException would be nice Java, sadly only catch blocks get those
+		return e instanceof UncheckedIOException ? ((UncheckedIOException) e).getCause() : e;
 	}
 }
