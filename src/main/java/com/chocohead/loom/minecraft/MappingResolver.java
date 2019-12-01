@@ -4,16 +4,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.lang.ref.SoftReference;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
@@ -28,8 +23,10 @@ import dev.jeka.core.api.depmanagement.JkFileSystemDependency;
 import dev.jeka.core.api.depmanagement.JkModuleId;
 import dev.jeka.core.api.depmanagement.JkResolveResult;
 import dev.jeka.core.api.depmanagement.JkVersionedModule;
+import dev.jeka.core.api.file.JkPathTree;
 import dev.jeka.core.api.system.JkException;
 import dev.jeka.core.api.system.JkLog;
+import dev.jeka.core.api.utils.JkUtilsPath;
 
 import net.fabricmc.mappings.ClassEntry;
 import net.fabricmc.mappings.EntryTriple;
@@ -43,6 +40,7 @@ import net.fabricmc.tinyremapper.IMappingProvider;
 import net.fabricmc.tinyremapper.MemberInstance;
 
 import com.chocohead.loom.FullDependency;
+import com.chocohead.loom.util.FileUtils;
 import com.chocohead.loom.util.MappingReaders;
 import com.chocohead.loom.util.TinyParamWriter;
 import com.chocohead.loom.util.TinyWriter;
@@ -249,12 +247,12 @@ public class MappingResolver {
 		@Override
 		public void populateCache(boolean offline) {
 			Path base = makeBase();
-			//JkUtilsPath.deleteIfExists(base);
+			assert Files.notExists(base);
 
-			try (FileSystem fs = FileSystems.newFileSystem(mappings, null)) {
-				Files.copy(fs.getPath("mappings/mappings.tiny"), base, StandardCopyOption.REPLACE_EXISTING);
-			} catch (IOException e) {
-				throw new UncheckedIOException("Error extracting mappings", e);
+			try (JkPathTree tree = JkPathTree.ofZip(mappings)) {
+				JkUtilsPath.copy(tree.get("mappings/mappings.tiny"), base, StandardCopyOption.REPLACE_EXISTING);
+			} catch (UncheckedIOException e) {
+				throw new UncheckedIOException("Error extracting mappings", e.getCause());
 			}
 		}
 
@@ -331,15 +329,10 @@ public class MappingResolver {
 				Path base = makeBase(); //Strictly it doesn't need doing, but it's logical for it to have been done
 				if (Files.notExists(base)) throw new IllegalStateException("Need mappings extracting before creating dependency");
 
-				try (FileSystem fs = FileSystems.newFileSystem(new URI("jar:" + jar.toUri()), Collections.singletonMap("create", "true"))) {
-					Path destination = fs.getPath("mappings/mappings.tiny");
-
-					Files.createDirectories(destination.getParent());
-					Files.copy(base, destination, StandardCopyOption.REPLACE_EXISTING);
-				} catch (URISyntaxException e) {
-					throw new IllegalStateException("Cannot convert jar to URI?", e);
-				} catch (IOException e) {
-					throw new UncheckedIOException("Error creating mappings", e);
+				try (JkPathTree tree = JkPathTree.ofZip(jar)) {
+					tree.importFile(base, "mappings/mappings.tiny", StandardCopyOption.REPLACE_EXISTING);
+				} catch (UncheckedIOException e) {
+					throw new UncheckedIOException("Error packing mappings into jar", e.getCause());
 				}
 			}, jar);
 		}
@@ -466,14 +459,18 @@ public class MappingResolver {
 		@Override
 		public JkDependency asDependency() {
 			Path merged = cache.resolve(makePath("merged").append(".tiny").toString());
+			Path jar = cache.resolve(makePath("tiny").append(".jar").toString());
 
 			return JkComputedDependency.of(() -> {
-				try {
+				try (JkPathTree tree = JkPathTree.ofZip(jar)) {
 					CommandMergeTiny.run(makeInters(), makeNormal(), merged, "intermediary", false);
-				} catch (Exception e) {
-					throw new RuntimeException("Error merging mappings", e);
+
+					JkUtilsPath.createDirectories(tree.get("mappings"));
+					tree.importFile(merged, "mappings/mappings.tiny", StandardCopyOption.REPLACE_EXISTING);
+				} catch (UncheckedIOException | IOException e) {
+					throw new RuntimeException("Error merging mappings", FileUtils.unpackIOException(e));
 				}
-			}, merged);
+			}, jar);
 		}
 	}
 
