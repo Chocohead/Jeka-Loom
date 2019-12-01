@@ -330,6 +330,7 @@ public class MappingResolver {
 				if (Files.notExists(base)) throw new IllegalStateException("Need mappings extracting before creating dependency");
 
 				try (JkPathTree tree = JkPathTree.ofZip(jar)) {
+					JkUtilsPath.createDirectories(tree.get("mappings"));
 					tree.importFile(base, "mappings/mappings.tiny", StandardCopyOption.REPLACE_EXISTING);
 				} catch (UncheckedIOException e) {
 					throw new UncheckedIOException("Error packing mappings into jar", e.getCause());
