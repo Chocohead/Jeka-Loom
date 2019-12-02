@@ -33,6 +33,10 @@ public class TinyWriter implements MappingProcessor, AutoCloseable {
 	}
 
 	@Override
+	public void acceptClassComment(String name, String comment) {
+	}
+
+	@Override
 	public void acceptMethod(String srcClassName, String srcName, String desc, String dstClassName, String dstName) {
 		try {
 			writer.write("METHOD\t");
@@ -50,11 +54,23 @@ public class TinyWriter implements MappingProcessor, AutoCloseable {
 	}
 
 	@Override
+	public void acceptMethodComment(String className, String name, String desc, String comment) {
+	}
+
+	@Override
 	public void acceptMethodArg(String className, String methodName, String methodDesc, String dstClassName, int argIndex, int lvtIndex, String argName) {
 	}
 
 	@Override
+	public void acceptMethodArgComment(String className, String name, String desc, int argIndex, int lvtIndex, String comment) {
+	}
+
+	@Override
 	public void acceptMethodVar(String className, String methodName, String methodDesc, String dstClassName, int varIndex, int lvtIndex, String varName) {
+	}
+
+	@Override
+	public void acceptMethodVarComment(String className, String name, String desc, int argIndex, int lvtIndex, String comment) {
 	}
 
 	@Override
@@ -72,6 +88,10 @@ public class TinyWriter implements MappingProcessor, AutoCloseable {
 		} catch (IOException e) {
 			throw new UncheckedIOException("Error writing tiny field", e);
 		}
+	}
+
+	@Override
+	public void acceptFieldComment(String className, String name, String desc, String comment) {
 	}
 
 	public void flush() throws IOException {
