@@ -177,7 +177,17 @@ public class MappingResolver {
 		public abstract void populateCache(boolean offline);
 
 		protected static final IMappingProvider makeProvider(Mappings mappings, String from, String to) {
+			if (!mappings.getNamespaces().contains(from)) {
+				throw new IllegalArgumentException("Cannot find namespace \"" + from + "\" in mappings");
+			}
+			if (!mappings.getNamespaces().contains(to)) {
+				throw new IllegalArgumentException("Cannot find namespace \"" + to + "\" in mappings");
+			}
+
 			return (classes, fields, methods) -> {
+				assert mappings.getNamespaces().contains(from);
+				assert mappings.getNamespaces().contains(to);
+
 				for (ClassEntry entry : mappings.getClassEntries()) {
 					String fromName = entry.get(from);
 					if (fromName == null) continue;
