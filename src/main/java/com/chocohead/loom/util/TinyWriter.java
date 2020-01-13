@@ -58,11 +58,11 @@ public class TinyWriter implements MappingProcessor, AutoCloseable {
 	}
 
 	@Override
-	public void acceptMethodArg(String className, String methodName, String methodDesc, String dstClassName, int argIndex, int lvtIndex, String argName) {
+	public void acceptMethodArg(String className, String methodName, String methodDesc, String dstClassName, int argIndex, String argName) {
 	}
 
 	@Override
-	public void acceptMethodArgComment(String className, String name, String desc, int argIndex, int lvtIndex, String comment) {
+	public void acceptMethodArgComment(String className, String name, String desc, int argIndex, String comment) {
 	}
 
 	@Override

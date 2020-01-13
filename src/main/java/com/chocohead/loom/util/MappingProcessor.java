@@ -9,9 +9,9 @@ public interface MappingProcessor {
 
 	void acceptMethodComment(String className, String name, String desc, String comment);
 
-	void acceptMethodArg(String className, String methodName, String methodDesc, String dstClassName, int argIndex, int lvtIndex, String argName);
+	void acceptMethodArg(String className, String methodName, String methodDesc, String dstClassName, int argIndex, String argName);
 
-	void acceptMethodArgComment(String className, String name, String desc, int argIndex, int lvtIndex, String comment);
+	void acceptMethodArgComment(String className, String name, String desc, int argIndex, String comment);
 
 	void acceptMethodVar(String className, String methodName, String methodDesc, String dstClassName, int varIndex, int lvtIndex, String varName);
 

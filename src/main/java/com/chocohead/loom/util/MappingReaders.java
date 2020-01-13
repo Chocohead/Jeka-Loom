@@ -19,7 +19,7 @@ public class MappingReaders {
 			}, (method, locals) -> {
 				for (int i = locals.length - 1; i >= 0; i--) {
 					if (locals[i] == null) continue;
-					processor.acceptMethodArg(null, method.name, method.desc, method.owner, i, i, locals[i]);
+					processor.acceptMethodArg(null, method.name, method.desc, method.owner, i, locals[i]);
 				}
 			});
 		}

@@ -126,39 +126,47 @@ class EnigmaReader {
 
 				case "ARG":
 				case "VAR": {
-					if (parts.length != 3) throw new IOException("Invalid enigma line (missing/extra columns): " + line);
+					if (parts.length < 2 || parts.length > 3) throw new IOException("Invalid enigma line (missing/extra columns): " + line);
 					String methodContext = contextStack.poll();
 					if (methodContext == null || methodContext.charAt(0) != 'M') throw new IOException("Invalid enigma line (arg without method): " + line);
 					String classContext = contextStack.peek();
 					if (classContext == null || classContext.charAt(0) != 'C') throw new IllegalStateException("Missing method owner context from stack");
 					contextStack.add(methodContext);
-					int methodDescStart = methodContext.indexOf('(');
-					assert methodDescStart != -1;
 
-					String srcClsName = classContext.substring(1);
-					String srcMethodName = methodContext.substring(1, methodDescStart);
-					String srcMethodDesc = methodContext.substring(methodDescStart);
 					int index = Integer.parseInt(parts[1]);
-					int lvIndex = -1;
-					String name = parts[2];
+					boolean isArg = "ARG".equals(parts[0]);
 
-					if (LEGACY) {
-						lvIndex = index;
-						index = -1;
-					}
+					if (parts.length == 3) {
+						int methodDescStart = methodContext.indexOf('(');
+						assert methodDescStart != -1;
 
-					boolean isArg;
-					String method = contextNamedStack.poll();
-					if (isArg = "ARG".equals(parts[0])) {
-						processor.acceptMethodArg(srcClsName, srcMethodName, srcMethodDesc, contextNamedStack.peek(), index, lvIndex, name);
+						String srcClsName = classContext.substring(1);
+						String srcMethodName = methodContext.substring(1, methodDescStart);
+						String srcMethodDesc = methodContext.substring(methodDescStart);
+						String name = parts[2];
+
+						String method = contextNamedStack.poll();
+						if (isArg) {
+							processor.acceptMethodArg(srcClsName, srcMethodName, srcMethodDesc, contextNamedStack.peek(), index, name);
+						} else {
+							int lvIndex;
+							if (LEGACY) {
+								lvIndex = index;
+								index = -1;
+							} else {
+								lvIndex = -1;
+							}
+							processor.acceptMethodVar(srcClsName, srcMethodName, srcMethodDesc, contextNamedStack.peek(), index, lvIndex, name);
+						}
+						contextNamedStack.add(method);
+
+						contextNamedStack.add((isArg ? 'A' : 'V') + name);
 					} else {
-						processor.acceptMethodVar(srcClsName, srcMethodName, srcMethodDesc, contextNamedStack.peek(), index, lvIndex, name);
+						contextNamedStack.add(isArg ? "A" : "V"); //No name, but we still need something to avoid underflowing
 					}
-					contextNamedStack.add(method);
 
 					indent++;
 					contextStack.add((isArg ? "A" : "V") + index);
-					contextNamedStack.add((isArg ? 'A' : 'V') + name);
 					break;
 				}
 
@@ -270,7 +278,7 @@ class EnigmaReader {
 			String methodDesc = methodContext.substring(methodDescStart);
 			int lvIndex = Integer.parseInt(argContext.substring(1));
 
-			processor.acceptMethodArgComment(className, methodName, methodDesc, LEGACY ? -1 : lvIndex, LEGACY ? lvIndex : -1, text);
+			processor.acceptMethodArgComment(className, methodName, methodDesc, lvIndex, text);
 			contextStack.add(methodContext); //Put this back again
 			contextStack.add(argContext);
 			break;

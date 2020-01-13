@@ -24,7 +24,7 @@ public class TinyParamWriter extends TinyWriter {
 	}
 
 	@Override
-	public void acceptMethodArg(String className, String methodName, String methodDesc, String dstClassName, int argIndex, int lvtIndex, String argName) {
+	public void acceptMethodArg(String className, String methodName, String methodDesc, String dstClassName, int argIndex, String argName) {
 		if (currentMethod != null && !currentMethod.equals(dstClassName + '/' + methodName + methodDesc)) {
 			assert !currentMethodArgs.isEmpty();
 
@@ -53,8 +53,8 @@ public class TinyParamWriter extends TinyWriter {
 		assert currentMethodArgs.isEmpty() || (dstClassName + '/' + methodName + methodDesc).equals(currentMethod);
 		if (currentMethodArgs.isEmpty()) currentMethod = dstClassName + '/' + methodName + methodDesc;
 
-		while (currentMethodArgs.size() <= lvtIndex) currentMethodArgs.add(null);
-		String last = currentMethodArgs.set(lvtIndex, argName);
+		while (currentMethodArgs.size() <= argIndex) currentMethodArgs.add(null);
+		String last = currentMethodArgs.set(argIndex, argName);
 		assert last == null;
 	}
 
