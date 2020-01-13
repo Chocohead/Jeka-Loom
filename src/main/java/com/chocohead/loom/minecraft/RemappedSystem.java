@@ -7,7 +7,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -114,7 +113,7 @@ public final class RemappedSystem {
 		for (JkScope scope : dependencies.getDeclaredScopes()) {
 			JkResolveResult result = resolver.resolve(dependencies, scope).assertNoError();
 
-			result.getDependencyTree().toFlattenList().stream().<Stream<JkDependencyNode>>map(node -> {
+			result.getDependencyTree().toFlattenList().stream().flatMap(node -> {
 				switch (node.getNodeInfo().getFiles().size()) {
 				case 0: //Empty dependency apparently?
 					assert false: node;
@@ -128,7 +127,7 @@ public final class RemappedSystem {
 					assert node.getNodeInfo().getDeclaredScopes().contains(scope);
 					return node.getNodeInfo().getFiles().stream().map(JkFileSystemDependency::of).map(dep -> JkDependencyNode.ofFileDep(dep, Collections.singleton(scope)));
 				}
-			}).flatMap(Function.identity()).collect(Collectors.mapping(node -> {
+			}).collect(Collectors.mapping(node -> {
 				Path artifact = Iterables.getOnlyElement(node.getNodeInfo().getFiles());
 				assert Files.exists(artifact);
 
