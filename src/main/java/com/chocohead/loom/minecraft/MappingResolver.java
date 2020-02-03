@@ -1,14 +1,21 @@
 package com.chocohead.loom.minecraft;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.lang.ref.SoftReference;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
@@ -30,10 +37,18 @@ import dev.jeka.core.api.utils.JkUtilsPath;
 
 import net.fabricmc.mappings.ClassEntry;
 import net.fabricmc.mappings.EntryTriple;
+import net.fabricmc.mappings.ExtendedMappings;
 import net.fabricmc.mappings.FieldEntry;
 import net.fabricmc.mappings.Mappings;
 import net.fabricmc.mappings.MappingsProvider;
 import net.fabricmc.mappings.MethodEntry;
+import net.fabricmc.mappings.TinyV2Visitor;
+import net.fabricmc.mappings.model.MethodParameter;
+import net.fabricmc.mappings.model.MethodParameterEntry;
+import net.fabricmc.mappings.visitor.ClassVisitor;
+import net.fabricmc.mappings.visitor.FieldVisitor;
+import net.fabricmc.mappings.visitor.MappingsVisitor;
+import net.fabricmc.mappings.visitor.MethodVisitor;
 import net.fabricmc.stitch.commands.CommandMergeTiny;
 import net.fabricmc.stitch.commands.CommandProposeFieldNames;
 import net.fabricmc.tinyremapper.IMappingProvider;
@@ -310,6 +325,224 @@ public class MappingResolver {
 		}
 	}
 
+	public static class TinyV2Mappings extends MappingType {
+		private SoftReference<Mappings> interMappings;
+		private SoftReference<ExtendedMappings> namedMappings;
+
+		TinyV2Mappings(Path cache, Path mappings, JkVersionedModule version, String minecraft) {
+			super(cache, mappings, version, minecraft);
+		}
+
+		public TinyV2Mappings(Path cache, Path mappings, String minecraft, JkModuleId mappingModule, String mappingVersion, String mappingMC) {
+			super(cache, mappings, minecraft, mappingModule, mappingVersion, mappingMC);
+		}
+
+		private final Path makeV2Base() {
+			return cache.resolve(makePath("tiny").append("-base-v2.tiny").toString());
+		}
+
+		@Override
+		public boolean isMissingFiles() {
+			Path baseV2 = makeV2Base();
+
+			return hasVersion() ? Files.notExists(baseV2) : missingOrOld(baseV2, creationTime());
+		}
+
+		@Override
+		public void populateCache(boolean offline) {
+			Path baseV2 = makeV2Base();
+
+			if (Files.notExists(baseV2)) {
+				try (JkPathTree tree = JkPathTree.ofZip(mappings)) {
+					JkUtilsPath.copy(tree.get("mappings/mappings.tiny"), baseV2, StandardCopyOption.REPLACE_EXISTING);
+				} catch (UncheckedIOException e) {
+					throw new UncheckedIOException("Error extracting mappings", e.getCause());
+				}
+			}
+		}
+
+		@Override
+		public MappingFactory makeIntermediaryMapper() {
+			return (from, to) -> {
+				Mappings mappings = interMappings == null ? null : interMappings.get();
+
+				if (mappings == null) {
+					try (InputStream in = Files.newInputStream(makeV2Base())) {
+						mappings = MappingsProvider.readTinyMappings(in, false);
+					} catch (IOException e) {
+						throw new UncheckedIOException("Error reading mappings", e);
+					}
+
+					interMappings = new SoftReference<>(mappings);
+				}
+
+				return makeProvider(mappings, from, to);
+			};
+		}
+
+		@Override
+		public void enhanceMappings(Path mergedJar) {
+			//No need for this given the V2 mappings ship with Stitch already applied
+		}
+
+		@Override
+		public MappingFactory makeNamedMapper() {
+			return (from, to) -> {
+				ExtendedMappings mappings = namedMappings == null ? null : namedMappings.get();
+
+				final ExtendedMappings usedMappings;
+				if (mappings == null) {
+					try (InputStream in = Files.newInputStream(makeV2Base())) {
+						usedMappings = mappings = MappingsProvider.readFullTinyMappings(in, false);
+					} catch (IOException e) {
+						throw new UncheckedIOException("Error reading mappings", e);
+					}
+
+					namedMappings = new SoftReference<>(mappings);
+				} else {
+					usedMappings = mappings;
+				}
+
+				return new IMappingProvider() {
+					private final IMappingProvider normal = makeProvider(usedMappings, from, to);
+
+					@Override
+					public void load(Map<String, String> classMap, Map<String, String> fieldMap, Map<String, String> methodMap, Map<String, String[]> localMap) {
+						load(classMap, fieldMap, methodMap);
+
+						for (MethodParameterEntry parameter : usedMappings.getMethodParameterEntries()) {
+							MethodParameter fromParam = parameter.get(from);
+							MethodParameter toParam = parameter.get(to);
+
+							String method = toParam.getMethod().getOwner() + '/' + fromParam.getMethod().getName() + fromParam.getMethod().getDesc();
+							int index = toParam.getLocalVariableIndex();
+							String name = toParam.getName();
+
+							String[] locals = localMap.get(method);
+							if (locals == null) {
+								localMap.put(method, locals = new String[index + 1]);
+							} else if (locals.length <= index) {
+								localMap.put(method, locals = Arrays.copyOf(locals, index + 1));
+							}
+							locals[index] = name;
+						}
+					}
+
+					@Override
+					public void load(Map<String, String> classMap, Map<String, String> fieldMap, Map<String, String> methodMap) {
+						normal.load(classMap, fieldMap, methodMap);
+					}
+				};
+			};
+		}
+
+		@Override
+		public JkDependency asDependency() {
+			Path jar = cache.resolve(makePath("tiny").append(".jar").toString());
+
+			return JkComputedDependency.of(() -> {
+				Path base = makeV2Base(); //Strictly it doesn't need doing, but it's logical for it to have been done
+				if (Files.notExists(base)) throw new IllegalStateException("Need mappings extracting before creating dependency");
+
+				try (JkPathTree tree = JkPathTree.ofZip(jar)) {
+					JkUtilsPath.createDirectories(tree.createIfNotExist().get("mappings"));
+
+					try (Reader reader = new InputStreamReader(Files.newInputStream(base), StandardCharsets.UTF_8);
+							BufferedWriter writer = Files.newBufferedWriter(tree.getRoot().resolve("mappings/mappings.tiny"))) {
+						TinyV2Visitor.read(reader, new MappingsVisitor() {
+							@Override
+							public void visitVersion(int major, int minor) {
+								assert major == 2;
+							}
+
+
+							@Override
+							public void visitProperty(String name) {
+								// Don't need to catch escaped-names as the visitor will do it
+							}
+
+							@Override
+							public void visitProperty(String name, String value) {
+							}
+
+							@Override
+							public void visitNamespaces(String... namespaces) {
+								try {
+									writer.write("v1");
+									for (String namespace : namespaces) {
+										writer.write('\t');
+										writer.write(namespace);
+									}
+									writer.newLine();
+								} catch (IOException e) {
+									throw new UncheckedIOException("Error writing tiny header", e);
+								}
+							}
+
+							@Override
+							public ClassVisitor visitClass(long offset, String[] names) {
+								try {
+									writer.write("CLASS");
+									for (String name : names) {
+										writer.write('\t');
+										writer.write(name);
+									}
+									writer.newLine();
+								} catch (IOException e) {
+									throw new UncheckedIOException("Error writing tiny class", e);
+								}
+
+								return new ClassVisitor() {
+									@Override
+									public MethodVisitor visitMethod(long offset, String[] names, String descriptor) {
+										try {
+											writer.write("METHOD\t");
+											writer.write(descriptor);
+											for (String name : names) {
+												writer.write('\t');
+												writer.write(name);
+											}
+											writer.newLine();
+										} catch (IOException e) {
+											throw new UncheckedIOException("Error writing tiny method", e);
+										}
+
+										return null;
+									}
+
+									@Override
+									public FieldVisitor visitField(long offset, String[] names, String descriptor) {
+										try {
+											writer.write("FIELD\t");
+											writer.write(descriptor);
+											for (String name : names) {
+												writer.write('\t');
+												writer.write(name);
+											}
+											writer.newLine();
+										} catch (IOException e) {
+											throw new UncheckedIOException("Error writing tiny field", e);
+										}
+
+										return null;
+									}
+
+									@Override
+									public void visitComment(String line) {
+									}
+								};
+							}
+						});
+					} catch (IOException e) {
+						throw new UncheckedIOException("Error writing mappings into jar", e);
+					}
+				} catch (UncheckedIOException e) {
+					throw new UncheckedIOException("Error packing mappings into jar", e.getCause());
+				}
+			}, jar);
+		}
+	}
+
 	public static class TinyGzMappings extends TinyMappings {
 		TinyGzMappings(Path cache, Path mappings, JkVersionedModule version, String minecraft) {
 			super(cache, mappings, version, minecraft);
@@ -524,7 +757,18 @@ public class MappingResolver {
 			break;
 
 		case "jar":
-			type = new TinyMappings(cache, origin, version, minecraft);
+			try (JkPathTree tree = JkPathTree.ofZip(origin); BufferedReader reader = Files.newBufferedReader(tree.get("mappings/mappings.tiny"))) {
+				String firstLine = reader.readLine();
+				if (firstLine == null) throw new EOFException("Empty mappings file supplied");
+
+				if (firstLine.startsWith("v1\t")) {
+					type = new TinyMappings(cache, origin, version, minecraft);
+				} else {
+					type = new TinyV2Mappings(cache, origin, version, minecraft);
+				}
+			} catch (IOException | UncheckedIOException e) {
+				throw new IllegalArgumentException("Unable to read given mappings?", FileUtils.unpackIOException(e));
+			}
 			break;
 
 		default:
