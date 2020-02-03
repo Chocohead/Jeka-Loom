@@ -11,11 +11,11 @@ import java.util.function.Supplier;
 
 import dev.jeka.core.api.depmanagement.JkDependency;
 import dev.jeka.core.api.depmanagement.JkDependencySet;
+import dev.jeka.core.api.depmanagement.JkFileDependency;
 import dev.jeka.core.api.depmanagement.JkFileSystemDependency;
 import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
 import dev.jeka.core.api.depmanagement.JkModuleDependency;
 import dev.jeka.core.api.depmanagement.JkRepo;
-import dev.jeka.core.api.system.JkException;
 import dev.jeka.core.api.system.JkLog;
 import dev.jeka.core.api.utils.JkUtilsPath;
 
@@ -102,7 +102,7 @@ public class MinecraftDependency {
 
 				Version mcVersion = versions.getVersion(version);
 				if (mcVersion == null) {
-					throw new JkException("Failed to find Minecraft version: " + version);
+					throw new IllegalArgumentException("Failed to find Minecraft version: " + version);
 				}
 
 				return mcVersion.get(cache.resolve(String.format(VERSION_MANIFEST, version)), runOffline);
@@ -174,10 +174,26 @@ public class MinecraftDependency {
 		JkLog.endTask();
 	}
 
+	public JkFileDependency intermediaryJar() {
+		return JkFileSystemDependency.of(resolver.getIntermediary());
+	}
+
+	public JkFileDependency mappedJar() {
+		return JkFileSystemDependency.of(resolver.getMapped());
+	}
+
+	public JkDependency mappings() {
+		return mappings.asDependency();
+	}
+
+	public FullDependencies libraries() {
+		return resolver.getLibraries();
+	}
+
 	public FullDependencies asDependency() {
-		return resolver.getLibraries().andDependencies(JkDependencySet.of()
-				.and(JkFileSystemDependency.of(resolver.getMapped()))
-				.and(mappings.asDependency())
+		return libraries().andDependencies(JkDependencySet.of()
+				.and(mappedJar())
+				.and(mappings())
 				.withDefaultScopes(JkJavaDepScopes.PROVIDED));
 	}
 
