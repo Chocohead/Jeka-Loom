@@ -153,12 +153,13 @@ class Build extends JkCommands {
 
 	@JkDoc("Produces the main build arifact, with all necessary parent artifacts")
 	public void build() {
-		javaPlugin.clean().getProject().getMaker().makeMainArtifact();
+		JkJavaProjectMaker maker = javaPlugin.clean().getProject().getMaker();
+		maker.makeMissingArtifacts(JkJavaProjectMaker.SOURCES_ARTIFACT_ID, maker.getMainArtifactId());
 	}
 
-	@JkDoc("Produces all build artifacts that would come from clean java#pack")
+	@JkDoc("Produces all build artifacts that would come from \"clean java#pack\"")
 	public void buildAll() {
 		JkJavaProjectMaker maker = javaPlugin.clean().getProject().getMaker();
-		maker.makeMissingArtifacts(JkArtifactId.of("original", "jar"), maker.getMainArtifactId());
+		maker.makeMissingArtifacts(JkArtifactId.of("original", "jar"), JkJavaProjectMaker.SOURCES_ARTIFACT_ID, maker.getMainArtifactId());
 	}
 }
