@@ -11,6 +11,7 @@ import proguard.ProGuard;
 import dev.jeka.core.api.depmanagement.JkArtifactId;
 import dev.jeka.core.api.depmanagement.JkDependencySet;
 import dev.jeka.core.api.depmanagement.JkJavaDepScopes;
+import dev.jeka.core.api.depmanagement.JkModuleDependency;
 import dev.jeka.core.api.depmanagement.JkRepoSet;
 import dev.jeka.core.api.file.JkPathTree;
 import dev.jeka.core.api.java.project.JkJavaProject;
@@ -29,7 +30,7 @@ import net.fabricmc.tinyremapper.OutputConsumerPath;
 import net.fabricmc.tinyremapper.TinyRemapper;
 
 @JkImport("net.sf.proguard:proguard-base:6.2.0")
-@JkImport("com.github.Chocohead:tiny-remapper:c13c04c")
+@JkImport("com.github.Chocohead:Tiny-Remapper:d4af165")
 @JkImportRepo("https://jitpack.io/")
 class Build extends JkCommands {
 	private final JkPluginJava javaPlugin = getPlugin(JkPluginJava.class);
@@ -45,8 +46,9 @@ class Build extends JkCommands {
 				.andFile(JkLocator.getJekaJarPath(), JkJavaDepScopes.PROVIDED)
 				.and("com.google.guava:guava:28.0-jre", JkJavaDepScopes.SCOPES_FOR_COMPILATION)
 				.and("com.google.code.gson:gson:2.8.5", JkJavaDepScopes.SCOPES_FOR_COMPILATION)
-				.and("com.github.Chocohead:Stitch:ab75b5d", JkJavaDepScopes.SCOPES_FOR_COMPILATION)
-				.and("com.github.Chocohead:tiny-remapper:74df1c7", JkJavaDepScopes.SCOPES_FOR_COMPILATION)
+				.and(JkModuleDependency.of("com.github.Chocohead", "Stitch", "ab75b5d").andExclude("com.github.Chocohead:tiny-mappings-parser"), JkJavaDepScopes.SCOPES_FOR_COMPILATION)
+				.and("com.github.Chocohead:Tiny-Remapper:d4af165", JkJavaDepScopes.SCOPES_FOR_COMPILATION)
+				.and("com.github.Chocohead:Tiny-Mappings-Parser:d5b3b4a", JkJavaDepScopes.SCOPES_FOR_COMPILATION)
 				.and("org.junit.jupiter:junit-jupiter:5.5.1", JkJavaDepScopes.TEST)
 				.and("org.junit.platform:junit-platform-launcher:1.5.1", JkJavaDepScopes.TEST));
 
